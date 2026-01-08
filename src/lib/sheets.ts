@@ -21,6 +21,7 @@ export interface Customer {
   email: string
   created_date: string
   notes: string
+  notification_preference: string
 }
 
 export interface Order {
@@ -65,11 +66,12 @@ function rowToOrder(row: string[], headers: string[]): Order {
 }
 
 // CUSTOMERS
+// Column order: A:customer_id, B:first_name, C:last_name, D:phone, E:email, F:created_date, G:notes, H:notification_preference
 
 export async function getCustomers(): Promise<Customer[]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'Customers!A:G',
+    range: 'Customers!A:H',
   })
 
   const rows = response.data.values
@@ -107,17 +109,18 @@ export async function addCustomer(customer: Omit<Customer, 'customer_id' | 'crea
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'Customers!A:G',
+    range: 'Customers!A:H',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        newCustomer.customer_id,
-        newCustomer.first_name,
-        newCustomer.last_name,
-        newCustomer.phone,
-        newCustomer.email,
-        newCustomer.created_date,
-        newCustomer.notes,
+        newCustomer.customer_id,        // A
+        newCustomer.first_name,         // B
+        newCustomer.last_name,          // C
+        newCustomer.phone,              // D
+        newCustomer.email,              // E
+        newCustomer.created_date,       // F
+        newCustomer.notes,              // G
+        newCustomer.notification_preference, // H
       ]],
     },
   })

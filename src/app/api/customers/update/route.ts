@@ -15,7 +15,7 @@ const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID
 export async function PATCH(request: Request) {
   try {
     const body = await request.json()
-    const { customer_id, first_name, last_name, phone, email, notes } = body
+    const { customer_id, first_name, last_name, phone, email, notes, notification_preference } = body
 
     if (!customer_id) {
       return NextResponse.json({ error: 'Missing customer_id' }, { status: 400 })
@@ -24,7 +24,7 @@ export async function PATCH(request: Request) {
     // Get all customers to find the row
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Customers!A:G',
+      range: 'Customers!A:H',
     })
 
     const rows = response.data.values
@@ -48,8 +48,8 @@ export async function PATCH(request: Request) {
     // Row in sheet (1-indexed, +1 for header)
     const sheetRow = rowIndex + 1
 
-    // Update the row (columns B through G: first_name, last_name, phone, email, created_date stays, notes)
-    // We only update B, C, D, E, and G (skip F which is created_date)
+    // Update columns B through E (first_name, last_name, phone, email) and G, H (notes, notification_preference)
+    // Skip F which is created_date
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -60,8 +60,8 @@ export async function PATCH(request: Request) {
             values: [[first_name, last_name, phone, email]],
           },
           {
-            range: `Customers!G${sheetRow}`,
-            values: [[notes]],
+            range: `Customers!G${sheetRow}:H${sheetRow}`,
+            values: [[notes, notification_preference]],
           },
         ],
       },

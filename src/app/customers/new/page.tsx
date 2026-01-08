@@ -21,6 +21,7 @@ export default function NewCustomerPage() {
       phone: formData.get('phone') as string,
       email: formData.get('email') as string || '',
       notes: formData.get('notes') as string || '',
+      notification_preference: formData.get('notification_preference') as string,
     }
 
     try {
@@ -103,6 +104,17 @@ export default function NewCustomerPage() {
             className="input-field"
             placeholder="customer@email.com"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Notification Preference</label>
+          <select name="notification_preference" className="input-field" required>
+            <option value="SMS">SMS (Text Message)</option>
+            <option value="Email">Email</option>
+            <option value="Both">Both SMS and Email</option>
+            <option value="None">No Notifications</option>
+          </select>
+          <p className="text-xs text-taupe mt-1">How should we notify this customer when their order is ready?</p>
         </div>
 
         <div>

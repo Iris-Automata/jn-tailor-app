@@ -11,6 +11,7 @@ interface Customer {
   email: string
   created_date: string
   notes: string
+  notification_preference: string
 }
 
 export default function CustomersPage() {
@@ -30,6 +31,7 @@ export default function CustomersPage() {
     phone: '',
     email: '',
     notes: '',
+    notification_preference: '',
   })
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export default function CustomersPage() {
       phone: customer.phone,
       email: customer.email,
       notes: customer.notes,
+      notification_preference: customer.notification_preference || 'SMS',
     })
     setShowEditModal(true)
   }
@@ -88,6 +91,7 @@ export default function CustomersPage() {
       phone: '',
       email: '',
       notes: '',
+      notification_preference: '',
     })
   }
 
@@ -123,12 +127,27 @@ export default function CustomersPage() {
     }
   }
 
+  function getNotificationBadge(pref: string) {
+    switch (pref) {
+      case 'SMS':
+        return <span className="text-xs bg-sage/20 text-sage px-2 py-0.5 rounded">SMS</span>
+      case 'Email':
+        return <span className="text-xs bg-gold/20 text-gold px-2 py-0.5 rounded">Email</span>
+      case 'Both':
+        return <span className="text-xs bg-rust/20 text-rust px-2 py-0.5 rounded">SMS + Email</span>
+      case 'None':
+        return <span className="text-xs bg-taupe/20 text-taupe px-2 py-0.5 rounded">No Notifications</span>
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Edit Modal */}
       {showEditModal && editingCustomer && (
         <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg">
+          <div className="bg-white rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg max-h-[90vh] overflow-y-auto">
             <h3 className="font-display text-xl mb-4">Edit Customer</h3>
             
             <div className="space-y-4">
@@ -171,6 +190,20 @@ export default function CustomersPage() {
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="input-field"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Notification Preference</label>
+                <select
+                  value={editForm.notification_preference}
+                  onChange={(e) => setEditForm({ ...editForm, notification_preference: e.target.value })}
+                  className="input-field"
+                >
+                  <option value="SMS">SMS (Text Message)</option>
+                  <option value="Email">Email</option>
+                  <option value="Both">Both SMS and Email</option>
+                  <option value="None">No Notifications</option>
+                </select>
               </div>
               
               <div>
@@ -260,9 +293,12 @@ export default function CustomersPage() {
             <div key={customer.customer_id} className="card hover:border-rust/30 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium text-lg">
-                    {customer.first_name} {customer.last_name}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-medium text-lg">
+                      {customer.first_name} {customer.last_name}
+                    </h3>
+                    {getNotificationBadge(customer.notification_preference)}
+                  </div>
                   <p className="text-taupe text-sm">{customer.phone}</p>
                   {customer.email && (
                     <p className="text-taupe text-sm">{customer.email}</p>
