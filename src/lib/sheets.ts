@@ -32,9 +32,9 @@ export interface Order {
   order_details: string
   quantity: number
   cost: number
+  status: string
   expected_date: string
   payment_date: string
-  status: string
   completed_date: string
   picked_up_date: string
   notification_sent: string
@@ -126,6 +126,9 @@ export async function addCustomer(customer: Omit<Customer, 'customer_id' | 'crea
 }
 
 // ORDERS
+// Column order: A:order_id, B:customer_id, C:order_date, D:garment_type, E:service_type, 
+// F:order_details, G:quantity, H:cost, I:status, J:expected_date, K:payment_date, 
+// L:completed_date, M:picked_up_date, N:notification_sent, O:reminder_sent, P:internal_notes
 
 export async function getOrders(): Promise<Order[]> {
   const response = await sheets.spreadsheets.values.get({
@@ -171,22 +174,22 @@ export async function addOrder(order: Omit<Order, 'order_id' | 'order_date' | 's
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        newOrder.order_id,
-        newOrder.customer_id,
-        newOrder.order_date,
-        newOrder.garment_type,
-        newOrder.service_type,
-        newOrder.order_details,
-        newOrder.quantity,
-        newOrder.cost,
-        newOrder.expected_date,
-        newOrder.payment_date,
-        newOrder.status,
-        newOrder.completed_date,
-        newOrder.picked_up_date,
-        newOrder.notification_sent,
-        newOrder.reminder_sent,
-        newOrder.internal_notes,
+        newOrder.order_id,        // A
+        newOrder.customer_id,     // B
+        newOrder.order_date,      // C
+        newOrder.garment_type,    // D
+        newOrder.service_type,    // E
+        newOrder.order_details,   // F
+        newOrder.quantity,        // G
+        newOrder.cost,            // H
+        newOrder.status,          // I
+        newOrder.expected_date,   // J
+        newOrder.payment_date,    // K
+        newOrder.completed_date,  // L
+        newOrder.picked_up_date,  // M
+        newOrder.notification_sent, // N
+        newOrder.reminder_sent,   // O
+        newOrder.internal_notes,  // P
       ]],
     },
   })
@@ -203,17 +206,17 @@ export async function updateOrderStatus(orderId: string, newStatus: string): Pro
   // Row index + 2 (1 for header, 1 for 0-based to 1-based)
   const sheetRow = rowIndex + 2
   
-  // Status is column K (11th column)
+  // Status is column I (9th column)
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Orders!K${sheetRow}`,
+    range: `Orders!I${sheetRow}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[newStatus]],
     },
   })
 
-  // If status is "Ready", update completed_date
+  // If status is "Ready", update completed_date (column L)
   if (newStatus === 'Ready') {
     const today = new Date().toISOString().split('T')[0]
     await sheets.spreadsheets.values.update({
@@ -226,7 +229,7 @@ export async function updateOrderStatus(orderId: string, newStatus: string): Pro
     })
   }
 
-  // If status is "Picked Up", update picked_up_date
+  // If status is "Picked Up", update picked_up_date (column M)
   if (newStatus === 'Picked Up') {
     const today = new Date().toISOString().split('T')[0]
     await sheets.spreadsheets.values.update({

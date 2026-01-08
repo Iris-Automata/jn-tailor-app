@@ -12,9 +12,9 @@ interface Order {
   order_details: string
   quantity: number
   cost: number
+  status: string
   expected_date: string
   payment_date: string
-  status: string
   completed_date: string
   picked_up_date: string
   notification_sent: string
@@ -29,6 +29,8 @@ interface Customer {
   phone: string
 }
 
+const STATUS_OPTIONS = ['Received', 'In Progress', 'Ready', 'Picked Up']
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -37,6 +39,11 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('All')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [updatingOrder, setUpdatingOrder] = useState<string | null>(null)
+  
+  // Confirmation modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [pendingStatusChange, setPendingStatusChange] = useState<{orderId: string, newStatus: string, customerName: string} | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -45,12 +52,10 @@ export default function OrdersPage() {
   useEffect(() => {
     let filtered = orders
 
-    // Filter by status
     if (statusFilter !== 'All') {
       filtered = filtered.filter((o) => o.status === statusFilter)
     }
 
-    // Filter by search
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter((o) => {
@@ -88,9 +93,52 @@ export default function OrdersPage() {
     }
   }
 
+  function handleStatusChange(orderId: string, newStatus: string, customerId: string) {
+    const customerName = getCustomerName(customerId)
+    
+    // If changing to "Ready", show confirmation modal
+    if (newStatus === 'Ready') {
+      setPendingStatusChange({ orderId, newStatus, customerName })
+      setShowConfirmModal(true)
+    } else {
+      // For other status changes, just update directly
+      updateStatus(orderId, newStatus)
+    }
+  }
+
+  async function updateStatus(orderId: string, newStatus: string) {
+    setUpdatingOrder(orderId)
+    setShowConfirmModal(false)
+    setPendingStatusChange(null)
+    
+    try {
+      const res = await fetch('/api/orders/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, status: newStatus }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update')
+
+      setOrders(orders.map(o => 
+        o.order_id === orderId ? { ...o, status: newStatus } : o
+      ))
+    } catch (err) {
+      console.error('Failed to update status:', err)
+      alert('Failed to update order status')
+    } finally {
+      setUpdatingOrder(null)
+    }
+  }
+
   function getCustomerName(customerId: string) {
     const customer = customers.find((c) => c.customer_id === customerId)
     return customer ? `${customer.first_name} ${customer.last_name}` : 'Unknown'
+  }
+
+  function getCustomerPhone(customerId: string) {
+    const customer = customers.find((c) => c.customer_id === customerId)
+    return customer ? customer.phone : ''
   }
 
   function getStatusColor(status: string) {
@@ -112,6 +160,35 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Confirmation Modal */}
+      {showConfirmModal && pendingStatusChange && (
+        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-sm p-6 max-w-md mx-4 shadow-lg">
+            <h3 className="font-display text-xl mb-4">Confirm Order Ready</h3>
+            <p className="text-taupe mb-6">
+              Are you sure this order is complete? <strong>{pendingStatusChange.customerName}</strong> will be notified their order is ready for pickup.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false)
+                  setPendingStatusChange(null)
+                }}
+                className="btn-secondary"
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={() => updateStatus(pendingStatusChange.orderId, pendingStatusChange.newStatus)}
+                className="btn-primary"
+              >
+                Yes, Mark Ready
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -188,22 +265,38 @@ export default function OrdersPage() {
           {filteredOrders.map((order) => (
             <div key={order.order_id} className="card hover:border-rust/30 transition-colors">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="font-medium">{getCustomerName(order.customer_id)}</h3>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
                   </div>
-                  <p className="text-sm text-taupe">
+                  <p className="text-sm text-taupe">{getCustomerPhone(order.customer_id)}</p>
+                  <p className="text-sm text-taupe mt-1">
                     {order.garment_type} • {order.service_type}
                   </p>
                   <p className="text-sm text-taupe mt-1">{order.order_details}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right ml-4">
                   <p className="font-medium">${order.cost}</p>
                   <p className="text-xs text-taupe mt-1">Order {order.order_id}</p>
                   <p className="text-xs text-taupe">Due: {order.expected_date}</p>
+                  
+                  {/* Status Dropdown */}
+                  <div className="mt-3">
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.order_id, e.target.value, order.customer_id)}
+                      disabled={updatingOrder === order.order_id}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-sm border-0 cursor-pointer ${getStatusColor(order.status)} ${
+                        updatingOrder === order.order_id ? 'opacity-50' : ''
+                      }`}
+                    >
+                      {STATUS_OPTIONS.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
