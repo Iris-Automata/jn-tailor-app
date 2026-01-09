@@ -9,6 +9,7 @@ interface Customer {
   first_name: string
   last_name: string
   phone: string
+  email: string
 }
 
 export default function NewOrderPage() {
@@ -35,7 +36,8 @@ export default function NewOrderPage() {
           (c) =>
             c.first_name.toLowerCase().includes(query) ||
             c.last_name.toLowerCase().includes(query) ||
-            c.phone.includes(searchQuery)
+            c.phone.includes(searchQuery) ||
+            c.email.toLowerCase().includes(query)
         ).slice(0, 5)
       )
     }
@@ -148,7 +150,10 @@ export default function NewOrderPage() {
                     <div className="font-medium">
                       {customer.first_name} {customer.last_name}
                     </div>
-                    <div className="text-sm text-taupe">{customer.phone}</div>
+                    <div className="text-sm text-taupe">
+                      {customer.phone}
+                      {customer.email && <span> • {customer.email}</span>}
+                    </div>
                   </button>
                 ))}
               </div>
