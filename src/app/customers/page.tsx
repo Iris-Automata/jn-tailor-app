@@ -147,7 +147,7 @@ export default function CustomersPage() {
       {/* Edit Modal */}
       {showEditModal && editingCustomer && (
         <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-soulsonic rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg max-h-[90vh] overflow-y-auto">
             <h3 className="font-display text-xl mb-4">Edit Customer</h3>
             
             <div className="space-y-4">
@@ -241,7 +241,7 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl mb-2">Customers</h1>
-          <p className="text-taupe">Search and manage your customer records</p>
+          <p className="text-charcoal">Search and manage your customer records</p>
         </div>
         <Link href="/customers/new" className="btn-primary">
           + New Customer
@@ -258,7 +258,7 @@ export default function CustomersPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-taupe"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-charcoal"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -275,7 +275,7 @@ export default function CustomersPage() {
       {/* Customer List */}
       {loading ? (
         <div className="card">
-          <p className="text-taupe text-center py-12">Loading customers...</p>
+          <p className="text-charcoal text-center py-12">Loading customers...</p>
         </div>
       ) : error ? (
         <div className="card">
@@ -283,14 +283,14 @@ export default function CustomersPage() {
         </div>
       ) : filteredCustomers.length === 0 ? (
         <div className="card">
-          <p className="text-taupe text-center py-12">
+          <p className="text-charcoal text-center py-12">
             {searchQuery ? 'No customers found matching your search' : 'No customers yet'}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {filteredCustomers.map((customer) => (
-            <div key={customer.customer_id} className="card hover:border-rust/30 transition-colors">
+            <div key={customer.customer_id} className="card hover:border-offwhite/30 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -299,19 +299,19 @@ export default function CustomersPage() {
                     </h3>
                     {getNotificationBadge(customer.notification_preference)}
                   </div>
-                  <p className="text-taupe text-sm">{customer.phone}</p>
+                  <p className="text-charcoal text-sm">{customer.phone}</p>
                   {customer.email && (
-                    <p className="text-taupe text-sm">{customer.email}</p>
+                    <p className="text-charcoal text-sm">{customer.email}</p>
                   )}
                 </div>
                 <div className="text-right flex items-center gap-4">
                   <div>
-                    <p className="text-xs text-taupe">Customer since</p>
+                    <p className="text-xs text-charcoal">Customer since</p>
                     <p className="text-sm">{customer.created_date}</p>
                   </div>
                   <button
                     onClick={() => openEditModal(customer)}
-                    className="p-2 text-taupe hover:text-rust transition-colors"
+                    className="p-2 text-charcoal hover:text-rust transition-colors"
                     title="Edit customer"
                   >
                     <svg
@@ -331,7 +331,7 @@ export default function CustomersPage() {
                 </div>
               </div>
               {customer.notes && (
-                <p className="text-sm text-taupe mt-2 pt-2 border-t border-taupe/10">
+                <p className="text-sm text-charcoal mt-2 pt-2 border-t border-offwhite/10">
                   {customer.notes}
                 </p>
               )}

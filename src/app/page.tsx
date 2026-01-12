@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react'
 
 interface Stats {
   received: number
-  in_progress: number
   ready: number
   picked_up: number
   total: number
@@ -29,7 +28,7 @@ interface Customer {
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats>({ received: 0, in_progress: 0, ready: 0, picked_up: 0, total: 0 })
+  const [stats, setStats] = useState<Stats>({ received: 0, ready: 0, picked_up: 0, total: 0 })
   const [recentOrders, setRecentOrders] = useState<Order[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,8 +66,6 @@ export default function Dashboard() {
   function getStatusColor(status: string) {
     switch (status) {
       case 'Received':
-        return 'bg-taupe/20 text-taupe'
-      case 'In Progress':
         return 'bg-gold/20 text-gold'
       case 'Ready':
         return 'bg-rust/20 text-rust'
@@ -84,7 +81,7 @@ export default function Dashboard() {
       {/* Header */}
       <div>
         <h1 className="font-display text-3xl mb-2">Dashboard</h1>
-        <p className="text-taupe">Manage your customers and orders</p>
+        <p className="text-charcoal">Manage your customers and orders</p>
       </div>
 
       {/* Quick Actions */}
@@ -95,7 +92,7 @@ export default function Dashboard() {
               <h2 className="font-display text-xl mb-2 group-hover:text-rust transition-colors">
                 New Order
               </h2>
-              <p className="text-taupe text-sm">
+              <p className="text-charcoal text-sm">
                 Create a new alteration order for a customer
               </p>
             </div>
@@ -111,7 +108,7 @@ export default function Dashboard() {
               <h2 className="font-display text-xl mb-2 group-hover:text-rust transition-colors">
                 New Customer
               </h2>
-              <p className="text-taupe text-sm">
+              <p className="text-charcoal text-sm">
                 Add a new customer to your records
               </p>
             </div>
@@ -125,30 +122,24 @@ export default function Dashboard() {
       {/* Status Overview */}
       <div>
         <h2 className="font-display text-xl mb-4">Orders Overview</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="card text-center">
-            <div className="text-3xl font-display text-charcoal mb-1">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="card text-center border-gold/30">
+            <div className="text-3xl font-display text-gold mb-1">
               {loading ? '—' : stats.received}
             </div>
-            <div className="text-sm text-taupe">Received</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-3xl font-display text-charcoal mb-1">
-              {loading ? '—' : stats.in_progress}
-            </div>
-            <div className="text-sm text-taupe">In Progress</div>
+            <div className="text-sm text-charcoal">Received</div>
           </div>
           <div className="card text-center border-rust/30">
             <div className="text-3xl font-display text-rust mb-1">
               {loading ? '—' : stats.ready}
             </div>
-            <div className="text-sm text-taupe">Ready</div>
+            <div className="text-sm text-charcoal">Ready</div>
           </div>
-          <div className="card text-center">
+          <div className="card text-center border-sage/30">
             <div className="text-3xl font-display text-sage mb-1">
               {loading ? '—' : stats.picked_up}
             </div>
-            <div className="text-sm text-taupe">Picked Up</div>
+            <div className="text-sm text-charcoal">Picked Up</div>
           </div>
         </div>
       </div>
@@ -157,17 +148,17 @@ export default function Dashboard() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-xl">Recent Orders</h2>
-          <Link href="/orders" className="text-sm text-taupe hover:text-rust transition-colors">
+          <Link href="/orders" className="text-sm text-charcoal hover:text-rust transition-colors">
             View all →
           </Link>
         </div>
         {loading ? (
           <div className="card">
-            <p className="text-taupe text-center py-8">Loading...</p>
+            <p className="text-charcoal text-center py-8">Loading...</p>
           </div>
         ) : recentOrders.length === 0 ? (
           <div className="card">
-            <p className="text-taupe text-center py-8">No orders yet</p>
+            <p className="text-charcoal text-center py-8">No orders yet</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -181,13 +172,13 @@ export default function Dashboard() {
                         {order.status}
                       </span>
                     </div>
-                    <p className="text-sm text-taupe">
+                    <p className="text-sm text-charcoal">
                       {order.garment_type} • {order.service_type}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-medium">${order.cost}</p>
-                    <p className="text-xs text-taupe">Due: {order.expected_date}</p>
+                    <p className="text-xs text-charcoal">Due: {order.expected_date}</p>
                   </div>
                 </div>
               </div>

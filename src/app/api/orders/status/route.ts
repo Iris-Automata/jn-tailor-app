@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { updateOrderStatus } from '@/lib/sheets'
+import { updateOrderStatus, getOrders, getCustomerById } from '@/lib/sheets'
+
+const N8N_WEBHOOK_URL = 'https://irisone.app.n8n.cloud/webhook/1cafaa3b-7b6c-4b14-b66d-afe631a6c755'
 
 export async function PATCH(request: Request) {
   try {
@@ -10,10 +12,49 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Missing order_id or status' }, { status: 400 })
     }
 
+    // Update the order status in Google Sheets
     const success = await updateOrderStatus(order_id, status)
     
     if (!success) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    // If status changed to "Ready", trigger notification via n8n
+    if (status === 'Ready') {
+      try {
+        // Get order details
+        const orders = await getOrders()
+        const order = orders.find(o => o.order_id === order_id)
+        
+        if (order) {
+          // Get customer details
+          const customer = await getCustomerById(order.customer_id)
+          
+          if (customer) {
+            // Send data to n8n webhook
+            await fetch(N8N_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                order_id: order.order_id,
+                order_date: order.order_date,
+                customer_first_name: customer.first_name,
+                customer_last_name: customer.last_name,
+                customer_phone: customer.phone,
+                customer_email: customer.email,
+                notification_preference: customer.notification_preference,
+                garment_type: order.garment_type,
+                service_type: order.service_type,
+                order_details: order.order_details,
+                cost: order.cost,
+              }),
+            })
+          }
+        }
+      } catch (webhookError) {
+        // Log webhook error but don't fail the status update
+        console.error('Error triggering n8n webhook:', webhookError)
+      }
     }
 
     return NextResponse.json({ success: true })

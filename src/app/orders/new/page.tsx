@@ -21,6 +21,12 @@ export default function NewOrderPage() {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
+  
+  // Track "Other" selections
+  const [garmentType, setGarmentType] = useState('')
+  const [serviceType, setServiceType] = useState('')
+  const [otherGarment, setOtherGarment] = useState('')
+  const [otherService, setOtherService] = useState('')
 
   useEffect(() => {
     fetchCustomers()
@@ -68,14 +74,29 @@ export default function NewOrderPage() {
       return
     }
 
+    // Validate "Other" fields
+    if (garmentType === 'Other' && !otherGarment.trim()) {
+      setError('Please specify the garment type')
+      return
+    }
+    if (serviceType === 'Other' && !otherService.trim()) {
+      setError('Please specify the service type')
+      return
+    }
+
     setLoading(true)
     setError('')
 
     const formData = new FormData(e.currentTarget)
+    
+    // Use the specified "Other" value or the selected value
+    const finalGarmentType = garmentType === 'Other' ? otherGarment.trim() : garmentType
+    const finalServiceType = serviceType === 'Other' ? otherService.trim() : serviceType
+    
     const data = {
       customer_id: selectedCustomer.customer_id,
-      garment_type: formData.get('garment_type') as string,
-      service_type: formData.get('service_type') as string,
+      garment_type: finalGarmentType,
+      service_type: finalServiceType,
       order_details: formData.get('order_details') as string,
       quantity: parseInt(formData.get('quantity') as string) || 1,
       cost: parseFloat(formData.get('cost') as string) || 0,
@@ -176,7 +197,13 @@ export default function NewOrderPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Garment Type</label>
-            <select name="garment_type" className="input-field" required>
+            <select 
+              name="garment_type" 
+              className="input-field" 
+              required
+              value={garmentType}
+              onChange={(e) => setGarmentType(e.target.value)}
+            >
               <option value="">Select garment...</option>
               <option value="Pants">Pants</option>
               <option value="Jacket">Jacket</option>
@@ -190,7 +217,13 @@ export default function NewOrderPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Service Type</label>
-            <select name="service_type" className="input-field" required>
+            <select 
+              name="service_type" 
+              className="input-field" 
+              required
+              value={serviceType}
+              onChange={(e) => setServiceType(e.target.value)}
+            >
               <option value="">Select service...</option>
               <option value="Hem">Hem</option>
               <option value="Taper">Taper</option>
@@ -200,9 +233,40 @@ export default function NewOrderPage() {
               <option value="Lengthen">Lengthen</option>
               <option value="Repair">Repair</option>
               <option value="Custom">Custom</option>
+              <option value="Other">Other</option>
             </select>
           </div>
         </div>
+
+        {/* Other Garment Specification */}
+        {garmentType === 'Other' && (
+          <div>
+            <label className="block text-sm font-medium mb-2">Specify Garment Type</label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g., Curtains, Blanket, etc."
+              value={otherGarment}
+              onChange={(e) => setOtherGarment(e.target.value)}
+              required
+            />
+          </div>
+        )}
+
+        {/* Other Service Specification */}
+        {serviceType === 'Other' && (
+          <div>
+            <label className="block text-sm font-medium mb-2">Specify Service Type</label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g., Patch, Zipper replacement, etc."
+              value={otherService}
+              onChange={(e) => setOtherService(e.target.value)}
+              required
+            />
+          </div>
+        )}
 
         {/* Order Details */}
         <div>

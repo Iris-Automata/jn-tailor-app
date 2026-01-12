@@ -1,5 +1,18 @@
 import type { Metadata } from 'next'
+import { Sora, Inter } from 'next/font/google'
 import './globals.css'
+
+const sora = Sora({
+  subsets: ['latin'],
+  variable: '--font-sora',
+  display: 'swap',
+})
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'JN Tailor & Alterations',
@@ -12,9 +25,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${sora.variable} ${inter.variable}`}>
       <body className="min-h-screen">
-        <nav className="border-b border-taupe/20 bg-white">
+        <nav className="border-b border-taupe/20 bg-soulsonic">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="font-display text-xl tracking-tight">
               JN Tailor & Alterations
@@ -23,10 +36,10 @@ export default function RootLayout({
               <a href="/" className="text-charcoal hover:text-rust transition-colors">
                 Dashboard
               </a>
-              <a href="/customers" className="text-taupe hover:text-rust transition-colors">
+              <a href="/customers" className="text-charcoal hover:text-rust transition-colors">
                 Customers
               </a>
-              <a href="/orders" className="text-taupe hover:text-rust transition-colors">
+              <a href="/orders" className="text-charcoal hover:text-rust transition-colors">
                 Orders
               </a>
             </div>
@@ -36,7 +49,7 @@ export default function RootLayout({
           {children}
         </main>
         <footer className="border-t border-taupe/20 mt-16">
-          <div className="max-w-6xl mx-auto px-6 py-4 text-center text-sm text-taupe">
+          <div className="max-w-6xl mx-auto px-6 py-4 text-center text-sm text-charcoal">
             Powered by Iris Automata
           </div>
         </footer>

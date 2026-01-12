@@ -29,7 +29,7 @@ interface Customer {
   phone: string
 }
 
-const STATUS_OPTIONS = ['Received', 'In Progress', 'Ready', 'Picked Up']
+const STATUS_OPTIONS = ['Received', 'Ready', 'Picked Up']
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -144,8 +144,6 @@ export default function OrdersPage() {
   function getStatusColor(status: string) {
     switch (status) {
       case 'Received':
-        return 'bg-taupe/20 text-taupe'
-      case 'In Progress':
         return 'bg-gold/20 text-gold'
       case 'Ready':
         return 'bg-rust/20 text-rust'
@@ -156,16 +154,16 @@ export default function OrdersPage() {
     }
   }
 
-  const statuses = ['All', 'Received', 'In Progress', 'Ready', 'Picked Up']
+  const statuses = ['All', 'Received', 'Ready', 'Picked Up']
 
   return (
     <div className="space-y-6">
       {/* Confirmation Modal */}
       {showConfirmModal && pendingStatusChange && (
         <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-sm p-6 max-w-md mx-4 shadow-lg">
+          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg">
             <h3 className="font-display text-xl mb-4">Confirm Order Ready</h3>
-            <p className="text-taupe mb-6">
+            <p className="text-charcoal mb-6">
               Are you sure this order is complete? <strong>{pendingStatusChange.customerName}</strong> will be notified their order is ready for pickup.
             </p>
             <div className="flex gap-3 justify-end">
@@ -180,7 +178,7 @@ export default function OrdersPage() {
               </button>
               <button
                 onClick={() => updateStatus(pendingStatusChange.orderId, pendingStatusChange.newStatus)}
-                className="btn-primary"
+                className="bg-cardBg text-rust border border-rust px-6 py-3 rounded-sm font-medium hover:bg-rust hover:border-rust hover:text-soulsonic transition-colors duration-200"
               >
                 Yes, Mark Ready
               </button>
@@ -193,7 +191,7 @@ export default function OrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-3xl mb-2">Orders</h1>
-          <p className="text-taupe">Track and manage alteration orders</p>
+          <p className="text-charcoal">Track and manage alteration orders</p>
         </div>
         <Link href="/orders/new" className="btn-primary">
           + New Order
@@ -208,10 +206,10 @@ export default function OrdersPage() {
             onClick={() => setStatusFilter(status)}
             className={`px-4 py-2 rounded-sm text-sm transition-colors ${
               statusFilter === status
-                ? 'bg-charcoal text-cream'
+                ? 'bg-charcoal text-soulsonic'
                 : status === 'Ready'
-                ? 'border border-rust/50 text-rust hover:bg-rust hover:text-cream'
-                : 'border border-taupe/30 text-taupe hover:border-charcoal hover:text-charcoal'
+                ? 'border border-charcoal/50 text-charcoal hover:bg-charcoal hover:text-charcoal'
+                : 'border border-charcoal/50 text-charcoal hover:border-charcoal hover:text-charcoal'
             }`}
           >
             {status === 'Ready' ? 'Ready for Pickup' : status}
@@ -229,7 +227,7 @@ export default function OrdersPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-taupe"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-charcoal"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -246,7 +244,7 @@ export default function OrdersPage() {
       {/* Orders List */}
       {loading ? (
         <div className="card">
-          <p className="text-taupe text-center py-12">Loading orders...</p>
+          <p className="text-charcoal text-center py-12">Loading orders...</p>
         </div>
       ) : error ? (
         <div className="card">
@@ -254,7 +252,7 @@ export default function OrdersPage() {
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="card">
-          <p className="text-taupe text-center py-12">
+          <p className="text-charcoal text-center py-12">
             {searchQuery || statusFilter !== 'All'
               ? 'No orders found matching your filters'
               : 'No orders yet'}
@@ -263,22 +261,22 @@ export default function OrdersPage() {
       ) : (
         <div className="space-y-3">
           {filteredOrders.map((order) => (
-            <div key={order.order_id} className="card hover:border-rust/30 transition-colors">
+            <div key={order.order_id} className="card hover:border-offwhite/30 transition-colors">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="font-medium">{getCustomerName(order.customer_id)}</h3>
                   </div>
-                  <p className="text-sm text-taupe">{getCustomerPhone(order.customer_id)}</p>
-                  <p className="text-sm text-taupe mt-1">
+                  <p className="text-sm text-charcoal">{getCustomerPhone(order.customer_id)}</p>
+                  <p className="text-sm text-charcoal mt-1">
                     {order.garment_type} • {order.service_type}
                   </p>
-                  <p className="text-sm text-taupe mt-1">{order.order_details}</p>
+                  <p className="text-sm text-charcoal mt-1">{order.order_details}</p>
                 </div>
                 <div className="text-right ml-4">
                   <p className="font-medium">${order.cost}</p>
-                  <p className="text-xs text-taupe mt-1">Order {order.order_id}</p>
-                  <p className="text-xs text-taupe">Due: {order.expected_date}</p>
+                  <p className="text-xs text-charcoal mt-1">Order {order.order_id}</p>
+                  <p className="text-xs text-charcoal">Due: {order.expected_date}</p>
                   
                   {/* Status Dropdown */}
                   <div className="mt-3">

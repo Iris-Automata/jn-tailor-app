@@ -157,7 +157,15 @@ export async function getOrdersByCustomerId(customerId: string): Promise<Order[]
 }
 
 export async function addOrder(order: Omit<Order, 'order_id' | 'order_date' | 'status' | 'completed_date' | 'picked_up_date' | 'notification_sent' | 'reminder_sent'>): Promise<Order> {
-  const order_id = `O${Date.now()}`
+  // Generate a unique 7-digit order ID
+  const existingOrders = await getOrders()
+  const existingIds = new Set(existingOrders.map(o => o.order_id))
+  
+  let order_id: string
+  do {
+    order_id = String(Math.floor(1000000 + Math.random() * 9000000))
+  } while (existingIds.has(order_id))
+  
   const order_date = new Date().toISOString().split('T')[0]
   
   const newOrder: Order = {
@@ -255,7 +263,6 @@ export async function getOrderStats(): Promise<Record<string, number>> {
   
   return {
     received: orders.filter(o => o.status === 'Received').length,
-    in_progress: orders.filter(o => o.status === 'In Progress').length,
     ready: orders.filter(o => o.status === 'Ready').length,
     picked_up: orders.filter(o => o.status === 'Picked Up').length,
     total: orders.length,

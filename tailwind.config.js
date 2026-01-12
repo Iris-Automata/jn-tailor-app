@@ -8,17 +8,19 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Warm, professional palette for a tailor shop
-        cream: '#F9F6F1',
-        charcoal: '#2C2C2C',
-        taupe: '#8B7E74',
-        rust: '#B5654F',
-        sage: '#7D8B75',
-        gold: '#C9A227',
+        soulsonic: '#302853',           // background color
+        offwhite: '#FAF9F6',        // text, buttons
+        taupe: '#8B7E74',           // muted text, borders
+        rust: '#FF8559',            // accent color (hover states, highlights)
+        sage: '#80EF80',            // success/green accent
+        gold: '#FFEE8C',            // warning/yellow accent
+        cardBg: '#4A4470',
+        charcoal: '#C8C6D8',
+        lightgray: '#4D4B5E'
       },
       fontFamily: {
-        display: ['Georgia', 'serif'],
-        body: ['system-ui', 'sans-serif'],
+        display: ['var(--font-sora)', 'sans-serif'],
+        body: ['var(--font-inter)', 'sans-serif'],
       },
     },
   },
