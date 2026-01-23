@@ -45,6 +45,28 @@ export default function OrdersPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [pendingStatusChange, setPendingStatusChange] = useState<{orderId: string, newStatus: string, customerName: string} | null>(null)
 
+  // Warning modal state (for Received -> Picked Up)
+  const [showWarningModal, setShowWarningModal] = useState(false)
+
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [editForm, setEditForm] = useState({
+    garment_type: '',
+    service_type: '',
+    order_details: '',
+    quantity: 1,
+    cost: 0,
+    expected_date: '',
+    internal_notes: '',
+  })
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -82,8 +104,10 @@ export default function OrdersPage() {
       if (!ordersRes.ok || !customersRes.ok) throw new Error('Failed to fetch')
       const ordersData = await ordersRes.json()
       const customersData = await customersRes.json()
-      setOrders(ordersData)
-      setFilteredOrders(ordersData)
+      // Reverse the order so most recent is first
+      const reversedOrders = [...ordersData].reverse()
+      setOrders(reversedOrders)
+      setFilteredOrders(reversedOrders)
       setCustomers(customersData)
     } catch (err) {
       setError('Failed to load orders')
@@ -95,13 +119,18 @@ export default function OrdersPage() {
 
   function handleStatusChange(orderId: string, newStatus: string, customerId: string) {
     const customerName = getCustomerName(customerId)
+    const currentOrder = orders.find(o => o.order_id === orderId)
     
-    // If changing to "Ready", show confirmation modal
+    // Check if trying to go from Received directly to Picked Up
+    if (currentOrder?.status === 'Received' && newStatus === 'Picked Up') {
+      setShowWarningModal(true)
+      return
+    }
+    
     if (newStatus === 'Ready') {
       setPendingStatusChange({ orderId, newStatus, customerName })
       setShowConfirmModal(true)
     } else {
-      // For other status changes, just update directly
       updateStatus(orderId, newStatus)
     }
   }
@@ -131,6 +160,94 @@ export default function OrdersPage() {
     }
   }
 
+  function openEditModal(order: Order) {
+    setEditingOrder(order)
+    setEditForm({
+      garment_type: order.garment_type,
+      service_type: order.service_type,
+      order_details: order.order_details,
+      quantity: order.quantity,
+      cost: order.cost,
+      expected_date: order.expected_date,
+      internal_notes: order.internal_notes,
+    })
+    setShowEditModal(true)
+  }
+
+  function closeEditModal() {
+    setShowEditModal(false)
+    setEditingOrder(null)
+    setEditForm({
+      garment_type: '',
+      service_type: '',
+      order_details: '',
+      quantity: 1,
+      cost: 0,
+      expected_date: '',
+      internal_notes: '',
+    })
+  }
+
+  async function handleSaveOrder() {
+    if (!editingOrder) return
+    
+    setSaving(true)
+    try {
+      const res = await fetch('/api/orders/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: editingOrder.order_id,
+          ...editForm,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update')
+
+      setOrders(orders.map(o => 
+        o.order_id === editingOrder.order_id 
+          ? { ...o, ...editForm }
+          : o
+      ))
+      
+      closeEditModal()
+    } catch (err) {
+      console.error('Failed to update order:', err)
+      alert('Failed to update order')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleDeleteClick(orderId: string) {
+    setOrderToDelete(orderId)
+    setShowDeleteModal(true)
+  }
+
+  async function handleDeleteOrder() {
+    if (!orderToDelete) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/orders/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderToDelete }),
+      })
+
+      if (!res.ok) throw new Error('Failed to delete')
+
+      setOrders(orders.filter(o => o.order_id !== orderToDelete))
+      setShowDeleteModal(false)
+      setOrderToDelete(null)
+    } catch (err) {
+      console.error('Failed to delete order:', err)
+      alert('Failed to delete order')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   function getCustomerName(customerId: string) {
     const customer = customers.find((c) => c.customer_id === customerId)
     return customer ? `${customer.first_name} ${customer.last_name}` : 'Unknown'
@@ -154,10 +271,36 @@ export default function OrdersPage() {
     }
   }
 
+  function formatDate(dateStr: string) {
+    if (!dateStr) return ''
+    const [year, month, day] = dateStr.split('-')
+    return `${month}-${day}-${year}`
+  }
+
   const statuses = ['All', 'Received', 'Ready', 'Picked Up']
 
   return (
     <div className="space-y-6">
+      {/* Warning Modal - Cannot skip Ready status */}
+      {showWarningModal && (
+        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg">
+            <h3 className="font-display text-xl mb-4">Cannot Mark as Picked Up</h3>
+            <p className="text-charcoal mb-6">
+              This order cannot be picked up if it has not been marked ready yet. <strong>Please mark the order as <span className="font-bold text-rust">"Ready"</span> first.</strong>
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowWarningModal(false)}
+                className="btn-primary"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Modal */}
       {showConfirmModal && pendingStatusChange && (
         <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
@@ -181,6 +324,157 @@ export default function OrdersPage() {
                 className="bg-cardBg text-rust border border-rust px-6 py-3 rounded-sm font-medium hover:bg-rust hover:border-rust hover:text-soulsonic transition-colors duration-200"
               >
                 Yes, Mark Ready
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && orderToDelete && (
+        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg">
+            <h3 className="font-display text-xl mb-4">Delete Order</h3>
+            <p className="text-charcoal mb-6">
+              Are you sure you want to delete this order? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setOrderToDelete(null)
+                }}
+                className="btn-secondary"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteOrder}
+                className="bg-rust text-white px-6 py-3 rounded-sm font-medium hover:bg-rust/80 transition-colors duration-200 disabled:opacity-50"
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Order Modal */}
+      {showEditModal && editingOrder && (
+        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="font-display text-xl mb-4">Edit Order</h3>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Garment Type</label>
+                  <select
+                    value={editForm.garment_type}
+                    onChange={(e) => setEditForm({ ...editForm, garment_type: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="Pants">Pants</option>
+                    <option value="Jacket">Jacket</option>
+                    <option value="Shirt">Shirt</option>
+                    <option value="Dress">Dress</option>
+                    <option value="Skirt">Skirt</option>
+                    <option value="Suit">Suit</option>
+                    <option value="Coat">Coat</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Service Type</label>
+                  <select
+                    value={editForm.service_type}
+                    onChange={(e) => setEditForm({ ...editForm, service_type: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="Hem">Hem</option>
+                    <option value="Taper">Taper</option>
+                    <option value="Take In">Take In</option>
+                    <option value="Let Out">Let Out</option>
+                    <option value="Shorten">Shorten</option>
+                    <option value="Lengthen">Lengthen</option>
+                    <option value="Repair">Repair</option>
+                    <option value="Custom">Custom</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Order Details</label>
+                <textarea
+                  value={editForm.order_details}
+                  onChange={(e) => setEditForm({ ...editForm, order_details: e.target.value })}
+                  rows={3}
+                  className="input-field resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Quantity</label>
+                  <input
+                    type="number"
+                    value={editForm.quantity}
+                    onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 1 })}
+                    min="1"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Cost ($)</label>
+                  <input
+                    type="number"
+                    value={editForm.cost}
+                    onChange={(e) => setEditForm({ ...editForm, cost: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    step="0.01"
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Expected Date</label>
+                <input
+                  type="date"
+                  value={editForm.expected_date}
+                  onChange={(e) => setEditForm({ ...editForm, expected_date: e.target.value })}
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Internal Notes</label>
+                <textarea
+                  value={editForm.internal_notes}
+                  onChange={(e) => setEditForm({ ...editForm, internal_notes: e.target.value })}
+                  rows={2}
+                  className="input-field resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 justify-end mt-6">
+              <button
+                onClick={closeEditModal}
+                className="btn-secondary"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveOrder}
+                className="btn-primary disabled:opacity-50"
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
@@ -276,7 +570,8 @@ export default function OrdersPage() {
                 <div className="text-right ml-4">
                   <p className="font-medium">${order.cost}</p>
                   <p className="text-xs text-charcoal mt-1">Order {order.order_id}</p>
-                  <p className="text-xs text-charcoal">Due: {order.expected_date}</p>
+                  <p className="text-xs text-charcoal">Received: {formatDate(order.order_date)}</p>
+                  <p className="text-xs text-charcoal">Due: {formatDate(order.expected_date)}</p>
                   
                   {/* Status Dropdown */}
                   <div className="mt-3">
@@ -295,6 +590,48 @@ export default function OrdersPage() {
                       ))}
                     </select>
                   </div>
+                </div>
+                
+                {/* Edit and Delete Icons - Vertical on the right */}
+                <div className="flex flex-col gap-1 ml-4 mt-4">
+                  <button
+                    onClick={() => openEditModal(order)}
+                    className="p-2 text-charcoal hover:text-gold transition-colors"
+                    title="Edit order"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(order.order_id)}
+                    className="p-2 text-charcoal hover:text-rust transition-colors"
+                    title="Delete order"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>

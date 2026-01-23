@@ -3,13 +3,6 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
-interface Stats {
-  received: number
-  ready: number
-  picked_up: number
-  total: number
-}
-
 interface Order {
   order_id: string
   customer_id: string
@@ -19,6 +12,8 @@ interface Order {
   status: string
   cost: number
   expected_date: string
+  completed_date: string
+  picked_up_date: string
 }
 
 interface Customer {
@@ -27,11 +22,23 @@ interface Customer {
   last_name: string
 }
 
+interface TodayStats {
+  received: number
+  markedReady: number
+  pickedUp: number
+}
+
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats>({ received: 0, ready: 0, picked_up: 0, total: 0 })
+  const [allOrders, setAllOrders] = useState<Order[]>([])
   const [recentOrders, setRecentOrders] = useState<Order[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [todayStats, setTodayStats] = useState<TodayStats>({ received: 0, markedReady: 0, pickedUp: 0 })
+  
+  // Modal state
+  const [showModal, setShowModal] = useState(false)
+  const [modalTitle, setModalTitle] = useState('')
+  const [modalOrders, setModalOrders] = useState<Order[]>([])
 
   useEffect(() => {
     fetchData()
@@ -39,18 +46,34 @@ export default function Dashboard() {
 
   async function fetchData() {
     try {
-      const [statsRes, ordersRes, customersRes] = await Promise.all([
-        fetch('/api/stats'),
+      const [ordersRes, customersRes] = await Promise.all([
         fetch('/api/orders'),
         fetch('/api/customers'),
       ])
-      const statsData = await statsRes.json()
       const ordersData = await ordersRes.json()
       const customersData = await customersRes.json()
       
-      setStats(statsData)
-      setRecentOrders(ordersData.slice(0, 5)) // Show last 5 orders
+      setAllOrders(ordersData)
+      setRecentOrders(ordersData.slice(0, 5))
       setCustomers(customersData)
+      
+      // Calculate today's stats
+      const today = new Date().toISOString().split('T')[0]
+      
+      // Received: orders received today (regardless of current status)
+      const todayReceived = ordersData.filter((o: Order) => o.order_date === today)
+      
+      // Marked Ready: orders marked ready today (regardless of current status)
+      const todayMarkedReady = ordersData.filter((o: Order) => o.completed_date === today)
+      
+      // Picked Up: orders picked up today
+      const todayPickedUp = ordersData.filter((o: Order) => o.picked_up_date === today)
+      
+      setTodayStats({
+        received: todayReceived.length,
+        markedReady: todayMarkedReady.length,
+        pickedUp: todayPickedUp.length,
+      })
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err)
     } finally {
@@ -76,8 +99,85 @@ export default function Dashboard() {
     }
   }
 
+  function formatDate(dateStr: string) {
+    if (!dateStr) return ''
+    const [year, month, day] = dateStr.split('-')
+    return `${month}-${day}-${year}`
+  }
+
+  function openModal(type: 'received' | 'markedReady' | 'pickedUp') {
+    const today = new Date().toISOString().split('T')[0]
+    let orders: Order[] = []
+    let title = ''
+
+    if (type === 'received') {
+      // All orders received today (regardless of current status)
+      orders = allOrders.filter((o) => o.order_date === today)
+      title = "Today's Received Orders"
+    } else if (type === 'markedReady') {
+      // All orders marked ready today (regardless of current status)
+      orders = allOrders.filter((o) => o.completed_date === today)
+      title = "Today's Marked Ready Orders"
+    } else if (type === 'pickedUp') {
+      // All orders picked up today
+      orders = allOrders.filter((o) => o.picked_up_date === today)
+      title = "Today's Picked Up Orders"
+    }
+
+    setModalOrders(orders)
+    setModalTitle(title)
+    setShowModal(true)
+  }
+
   return (
     <div className="space-y-8">
+      {/* Orders Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-xl">{modalTitle}</h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 text-taupe hover:text-charcoal transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto flex-1">
+              {modalOrders.length === 0 ? (
+                <p className="text-charcoal text-center py-8">No orders found</p>
+              ) : (
+                <div className="space-y-3">
+                  {modalOrders.map((order) => (
+                    <div key={order.order_id} className="card">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">{getCustomerName(order.customer_id)}</h4>
+                          <p className="text-sm text-charcoal">
+                            {order.garment_type} • {order.service_type}
+                          </p>
+                          <p className="text-xs text-charcoal">Order {order.order_id}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">${order.cost}</p>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(order.status)}`}>
+                            {order.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="font-display text-3xl mb-2">Dashboard</h1>
@@ -119,28 +219,37 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Status Overview */}
+      {/* Today's Orders Overview */}
       <div>
-        <h2 className="font-display text-xl mb-4">Orders Overview</h2>
+        <h2 className="font-display text-xl mb-4">Today's Orders Overview</h2>
         <div className="grid grid-cols-3 gap-4">
-          <div className="card text-center border-gold/30">
+          <button
+            onClick={() => openModal('received')}
+            className="card text-center border-gold/30 hover:border-gold/60 transition-colors cursor-pointer"
+          >
             <div className="text-3xl font-display text-gold mb-1">
-              {loading ? '—' : stats.received}
+              {loading ? '—' : todayStats.received}
             </div>
             <div className="text-sm text-charcoal">Received</div>
-          </div>
-          <div className="card text-center border-rust/30">
+          </button>
+          <button
+            onClick={() => openModal('markedReady')}
+            className="card text-center border-rust/30 hover:border-rust/60 transition-colors cursor-pointer"
+          >
             <div className="text-3xl font-display text-rust mb-1">
-              {loading ? '—' : stats.ready}
+              {loading ? '—' : todayStats.markedReady}
             </div>
-            <div className="text-sm text-charcoal">Ready</div>
-          </div>
-          <div className="card text-center border-sage/30">
+            <div className="text-sm text-charcoal">Marked Ready</div>
+          </button>
+          <button
+            onClick={() => openModal('pickedUp')}
+            className="card text-center border-sage/30 hover:border-sage/60 transition-colors cursor-pointer"
+          >
             <div className="text-3xl font-display text-sage mb-1">
-              {loading ? '—' : stats.picked_up}
+              {loading ? '—' : todayStats.pickedUp}
             </div>
             <div className="text-sm text-charcoal">Picked Up</div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -178,7 +287,7 @@ export default function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p className="font-medium">${order.cost}</p>
-                    <p className="text-xs text-charcoal">Due: {order.expected_date}</p>
+                    <p className="text-xs text-charcoal">Due: {formatDate(order.expected_date)}</p>
                   </div>
                 </div>
               </div>

@@ -210,14 +210,18 @@ export async function addOrder(order: Omit<Order, 'order_id' | 'order_date' | 's
 
 export async function updateOrderStatus(orderId: string, newStatus: string): Promise<boolean> {
   const orders = await getOrders()
-  const rowIndex = orders.findIndex(o => o.order_id === orderId)
+  const orderIndex = orders.findIndex(o => o.order_id === orderId)
   
-  if (rowIndex === -1) return false
+  if (orderIndex === -1) return false
+
+  const currentOrder = orders[orderIndex]
+  const currentStatus = currentOrder.status
 
   // Row index + 2 (1 for header, 1 for 0-based to 1-based)
-  const sheetRow = rowIndex + 2
+  const sheetRow = orderIndex + 2
+  const today = new Date().toISOString().split('T')[0]
   
-  // Status is column I (9th column)
+  // Update status (column I)
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `Orders!I${sheetRow}`,
@@ -227,9 +231,9 @@ export async function updateOrderStatus(orderId: string, newStatus: string): Pro
     },
   })
 
-  // If status is "Ready", update completed_date (column L)
+  // Handle date updates based on status transitions
   if (newStatus === 'Ready') {
-    const today = new Date().toISOString().split('T')[0]
+    // Set completed_date when marking as Ready
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `Orders!L${sheetRow}`,
@@ -238,17 +242,36 @@ export async function updateOrderStatus(orderId: string, newStatus: string): Pro
         values: [[today]],
       },
     })
-  }
-
-  // If status is "Picked Up", update picked_up_date (column M)
-  if (newStatus === 'Picked Up') {
-    const today = new Date().toISOString().split('T')[0]
+    // Clear picked_up_date if going back to Ready
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `Orders!M${sheetRow}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [[today]],
+        values: [['']],
+      },
+    })
+  } else if (newStatus === 'Picked Up') {
+    // Only set picked_up_date if coming from Ready status
+    if (currentStatus === 'Ready') {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `Orders!M${sheetRow}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[today]],
+        },
+      })
+    }
+    // If jumping from Received to Picked Up (accident), don't set picked_up_date
+  } else if (newStatus === 'Received') {
+    // Going back to Received - clear both dates
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Orders!L${sheetRow}:M${sheetRow}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [['', '']],
       },
     })
   }

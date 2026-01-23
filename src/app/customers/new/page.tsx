@@ -46,16 +46,16 @@ export default function NewCustomerPage() {
     <div className="max-w-2xl">
       {/* Header */}
       <div className="mb-8">
-        <Link href="/customers" className="text-sm text-taupe hover:text-rust transition-colors">
+        <Link href="/customers" className="text-sm text-charcoal hover:text-rust transition-colors">
           ← Back to Customers
         </Link>
         <h1 className="font-display text-3xl mt-4 mb-2">New Customer</h1>
-        <p className="text-taupe">Add a new customer to your records</p>
+        <p className="text-charcoal">Add a new customer to your records</p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="mb-6 p-4 bg-rust/10 border border-rust/30 rounded-sm text-rust text-sm">
+        <div className="mb-6 p-4 bg-rust/10 border border-rust/30 rounded-sm text-charcoal text-sm">
           {error}
         </div>
       )}
@@ -96,7 +96,7 @@ export default function NewCustomerPage() {
 
         <div>
           <label className="block text-sm font-medium mb-2">
-            Email <span className="text-taupe font-normal">(optional)</span>
+            Email <span className="text-charcoal font-normal">(optional)</span>
           </label>
           <input
             type="email"
@@ -114,12 +114,12 @@ export default function NewCustomerPage() {
             <option value="Both">Both SMS and Email</option>
             <option value="None">No Notifications</option>
           </select>
-          <p className="text-xs text-taupe mt-1">How should we notify this customer when their order is ready?</p>
+          <p className="text-xs text-charcoal mt-1">How should we notify this customer when their order is ready?</p>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-2">
-            Notes <span className="text-taupe font-normal">(optional)</span>
+            Notes <span className="text-charcoal font-normal">(optional)</span>
           </label>
           <textarea
             name="notes"

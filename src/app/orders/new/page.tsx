@@ -127,11 +127,11 @@ export default function NewOrderPage() {
     <div className="max-w-2xl">
       {/* Header */}
       <div className="mb-8">
-        <Link href="/orders" className="text-sm text-taupe hover:text-rust transition-colors">
+        <Link href="/orders" className="text-sm text-charcoal hover:text-rust transition-colors">
           ← Back to Orders
         </Link>
         <h1 className="font-display text-3xl mt-4 mb-2">New Order</h1>
-        <p className="text-taupe">Create a new alteration order</p>
+        <p className="text-charcoal">Create a new alteration order</p>
       </div>
 
       {/* Error Message */}
@@ -160,7 +160,7 @@ export default function NewOrderPage() {
               onFocus={() => setShowDropdown(true)}
             />
             {showDropdown && filteredCustomers.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-taupe/30 rounded-sm shadow-lg">
+              <div className="absolute z-10 w-full mt-1 bg-cardBg border border-taupe /30 rounded-sm shadow-lg">
                 {filteredCustomers.map((customer) => (
                   <button
                     key={customer.customer_id}
@@ -171,7 +171,7 @@ export default function NewOrderPage() {
                     <div className="font-medium">
                       {customer.first_name} {customer.last_name}
                     </div>
-                    <div className="text-sm text-taupe">
+                    <div className="text-sm text-charcoal">
                       {customer.phone}
                       {customer.email && <span> • {customer.email}</span>}
                     </div>
@@ -185,7 +185,7 @@ export default function NewOrderPage() {
               ✓ Selected: {selectedCustomer.first_name} {selectedCustomer.last_name}
             </p>
           )}
-          <p className="text-sm text-taupe mt-2">
+          <p className="text-sm text-charcoal mt-2">
             Can't find customer?{' '}
             <Link href="/customers/new" className="text-rust hover:underline">
               Add new customer
@@ -323,7 +323,7 @@ export default function NewOrderPage() {
         {/* Internal Notes */}
         <div>
           <label className="block text-sm font-medium mb-2">
-            Internal Notes <span className="text-taupe font-normal">(optional)</span>
+            Internal Notes <span className="text-charcoal font-normal">(optional)</span>
           </label>
           <textarea
             name="internal_notes"

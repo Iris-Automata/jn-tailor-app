@@ -36,12 +36,16 @@ export default function RootLayout({
               <a href="/" className="text-charcoal hover:text-rust transition-colors">
                 Dashboard
               </a>
+              <a href="/insights" className="text-charcoal hover:text-rust transition-colors">
+                Insights
+              </a>
               <a href="/customers" className="text-charcoal hover:text-rust transition-colors">
                 Customers
               </a>
               <a href="/orders" className="text-charcoal hover:text-rust transition-colors">
                 Orders
               </a>
+              
             </div>
           </div>
         </nav>
