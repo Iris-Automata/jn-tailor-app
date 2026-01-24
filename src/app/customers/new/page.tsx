@@ -1,17 +1,53 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+
+interface Customer {
+  customer_id: string
+  first_name: string
+  last_name: string
+  phone: string
+}
 
 export default function NewCustomerPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  
+  // Duplicate warning modal state
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [pendingCustomerData, setPendingCustomerData] = useState<any>(null)
+
+  useEffect(() => {
+    fetchCustomers()
+  }, [])
+
+  async function fetchCustomers() {
+    try {
+      const res = await fetch('/api/customers')
+      if (res.ok) {
+        const data = await res.json()
+        setCustomers(data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch customers:', err)
+    }
+  }
+
+  function checkForDuplicate(firstName: string, lastName: string, phone: string): boolean {
+    return customers.some(
+      (c) =>
+        c.first_name.toLowerCase() === firstName.toLowerCase() &&
+        c.last_name.toLowerCase() === lastName.toLowerCase() &&
+        c.phone === phone
+    )
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setLoading(true)
     setError('')
 
     const formData = new FormData(e.currentTarget)
@@ -24,6 +60,18 @@ export default function NewCustomerPage() {
       notification_preference: formData.get('notification_preference') as string,
     }
 
+    // Check for duplicate
+    if (checkForDuplicate(data.first_name, data.last_name, data.phone)) {
+      setPendingCustomerData(data)
+      setShowDuplicateModal(true)
+      return
+    }
+
+    await submitCustomer(data)
+  }
+
+  async function submitCustomer(data: any) {
+    setLoading(true)
     try {
       const res = await fetch('/api/customers', {
         method: 'POST',
@@ -42,8 +90,44 @@ export default function NewCustomerPage() {
     }
   }
 
+  async function handleAddAnyway() {
+    setShowDuplicateModal(false)
+    if (pendingCustomerData) {
+      await submitCustomer(pendingCustomerData)
+    }
+  }
+
   return (
     <div className="max-w-2xl">
+      {/* Duplicate Warning Modal */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg">
+            <h3 className="font-display text-xl mb-4">Duplicate Customer</h3>
+            <p className="text-charcoal mb-6">
+              A customer with the same name and phone number already exists. Do you still want to add this customer?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDuplicateModal(false)
+                  setPendingCustomerData(null)
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddAnyway}
+                className="btn-primary"
+              >
+                Add Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <Link href="/customers" className="text-sm text-charcoal hover:text-rust transition-colors">
