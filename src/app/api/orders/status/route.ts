@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { updateOrderStatus, getOrders, getCustomerById } from '@/lib/sheets'
 
 const N8N_WEBHOOK_URL = 'https://irisone.app.n8n.cloud/webhook/1cafaa3b-7b6c-4b14-b66d-afe631a6c755'
+const TAX_RATE = 0.0825
 
 export async function PATCH(request: Request) {
   try {
@@ -24,11 +25,15 @@ export async function PATCH(request: Request) {
       try {
         // Get order details
         const orders = await getOrders()
-        const order = orders.find(o => o.order_id === order_id)
+        const order = orders.find(o => String(o.order_id) === String(order_id))
         
         if (order) {
           // Get customer details
           const customer = await getCustomerById(order.customer_id)
+          
+          // Calculate total cost
+          const subtotal = order.unit_cost * order.quantity
+          const total = order.tax_applied === 'Yes' ? subtotal + (subtotal * TAX_RATE) : subtotal
           
           if (customer) {
             // Send data to n8n webhook
@@ -46,7 +51,10 @@ export async function PATCH(request: Request) {
                 garment_type: order.garment_type,
                 service_type: order.service_type,
                 order_details: order.order_details,
-                cost: order.cost,
+                quantity: order.quantity,
+                unit_cost: order.unit_cost,
+                tax_applied: order.tax_applied,
+                total_cost: Math.round(total * 100) / 100,
               }),
             })
           }
