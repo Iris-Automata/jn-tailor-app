@@ -11,7 +11,8 @@ interface Order {
   service_type: string
   order_details: string
   quantity: number
-  cost: number
+  unit_cost: number
+  tax_applied: string
   status: string
   expected_date: string
   payment_date: string
@@ -30,6 +31,7 @@ interface Customer {
 }
 
 const STATUS_OPTIONS = ['Received', 'Ready', 'Picked Up']
+const TAX_RATE = 0.0825
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -62,7 +64,8 @@ export default function OrdersPage() {
     service_type: '',
     order_details: '',
     quantity: 1,
-    cost: 0,
+    unit_cost: 0,
+    tax_applied: false,
     expected_date: '',
     internal_notes: '',
   })
@@ -86,7 +89,7 @@ export default function OrdersPage() {
           ? `${customer.first_name} ${customer.last_name}`.toLowerCase()
           : ''
         return (
-          o.order_id.toLowerCase().includes(query) ||
+          String(o.order_id).toLowerCase().includes(query) ||
           customerName.includes(query)
         )
       })
@@ -119,7 +122,7 @@ export default function OrdersPage() {
 
   function handleStatusChange(orderId: string, newStatus: string, customerId: string) {
     const customerName = getCustomerName(customerId)
-    const currentOrder = orders.find(o => o.order_id === orderId)
+    const currentOrder = orders.find(o => String(o.order_id) === String(orderId))
     
     // Check if trying to go from Received directly to Picked Up
     if (currentOrder?.status === 'Received' && newStatus === 'Picked Up') {
@@ -150,7 +153,7 @@ export default function OrdersPage() {
       if (!res.ok) throw new Error('Failed to update')
 
       setOrders(orders.map(o => 
-        o.order_id === orderId ? { ...o, status: newStatus } : o
+        String(o.order_id) === String(orderId) ? { ...o, status: newStatus } : o
       ))
     } catch (err) {
       console.error('Failed to update status:', err)
@@ -167,7 +170,8 @@ export default function OrdersPage() {
       service_type: order.service_type,
       order_details: order.order_details,
       quantity: order.quantity,
-      cost: order.cost,
+      unit_cost: order.unit_cost,
+      tax_applied: order.tax_applied === 'Yes',
       expected_date: order.expected_date,
       internal_notes: order.internal_notes,
     })
@@ -182,10 +186,28 @@ export default function OrdersPage() {
       service_type: '',
       order_details: '',
       quantity: 1,
-      cost: 0,
+      unit_cost: 0,
+      tax_applied: false,
       expected_date: '',
       internal_notes: '',
     })
+  }
+
+  function calculateEditTotal(): number {
+    const subtotal = editForm.unit_cost * editForm.quantity
+    if (editForm.tax_applied) {
+      return subtotal + (subtotal * TAX_RATE)
+    }
+    return subtotal
+  }
+
+  // Calculate total for display in order cards
+  function calculateOrderTotal(order: Order): number {
+    const subtotal = order.unit_cost * order.quantity
+    if (order.tax_applied === 'Yes') {
+      return subtotal + (subtotal * TAX_RATE)
+    }
+    return subtotal
   }
 
   async function handleSaveOrder() {
@@ -198,15 +220,31 @@ export default function OrdersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           order_id: editingOrder.order_id,
-          ...editForm,
+          garment_type: editForm.garment_type,
+          service_type: editForm.service_type,
+          order_details: editForm.order_details,
+          quantity: editForm.quantity,
+          unit_cost: editForm.unit_cost,
+          tax_applied: editForm.tax_applied ? 'Yes' : 'No',
+          expected_date: editForm.expected_date,
+          internal_notes: editForm.internal_notes,
         }),
       })
 
       if (!res.ok) throw new Error('Failed to update')
 
       setOrders(orders.map(o => 
-        o.order_id === editingOrder.order_id 
-          ? { ...o, ...editForm }
+        String(o.order_id) === String(editingOrder.order_id) 
+          ? { ...o, 
+              garment_type: editForm.garment_type,
+              service_type: editForm.service_type,
+              order_details: editForm.order_details,
+              quantity: editForm.quantity,
+              unit_cost: editForm.unit_cost,
+              tax_applied: editForm.tax_applied ? 'Yes' : 'No',
+              expected_date: editForm.expected_date,
+              internal_notes: editForm.internal_notes,
+            }
           : o
       ))
       
@@ -237,7 +275,7 @@ export default function OrdersPage() {
 
       if (!res.ok) throw new Error('Failed to delete')
 
-      setOrders(orders.filter(o => o.order_id !== orderToDelete))
+      setOrders(orders.filter(o => String(o.order_id) !== String(orderToDelete)))
       setShowDeleteModal(false)
       setOrderToDelete(null)
     } catch (err) {
@@ -416,6 +454,7 @@ export default function OrdersPage() {
                 />
               </div>
 
+              {/* Quantity & Unit Cost */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Quantity</label>
@@ -428,15 +467,47 @@ export default function OrdersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Cost ($)</label>
+                  <label className="block text-sm font-medium mb-2">Unit Cost ($)</label>
                   <input
                     type="number"
-                    value={editForm.cost}
-                    onChange={(e) => setEditForm({ ...editForm, cost: parseFloat(e.target.value) || 0 })}
+                    value={editForm.unit_cost || ''}
+                    onChange={(e) => setEditForm({ ...editForm, unit_cost: parseFloat(e.target.value) || 0 })}
                     min="0"
                     step="0.01"
                     className="input-field"
+                    placeholder="0.00"
                   />
+                </div>
+              </div>
+
+              {/* Tax Checkbox & Total */}
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.tax_applied}
+                    onChange={(e) => setEditForm({ ...editForm, tax_applied: e.target.checked })}
+                    className="w-4 h-4 rounded border-taupe/30 text-rust focus:ring-rust"
+                  />
+                  <span className="text-sm">Add tax (8.25%)</span>
+                </label>
+                
+                {/* Total Display */}
+                <div className="bg-cream/50 border border-taupe/20 rounded-sm p-4">
+                  <div className="flex justify-between text-sm text-charcoal">
+                    <span>Subtotal ({editForm.quantity} × ${editForm.unit_cost.toFixed(2)})</span>
+                    <span>${(editForm.unit_cost * editForm.quantity).toFixed(2)}</span>
+                  </div>
+                  {editForm.tax_applied && (
+                    <div className="flex justify-between text-sm text-charcoal mt-1">
+                      <span>Tax (8.25%)</span>
+                      <span>${(editForm.unit_cost * editForm.quantity * TAX_RATE).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-medium mt-2 pt-2 border-t border-taupe/20">
+                    <span>Total</span>
+                    <span>${calculateEditTotal().toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -568,7 +639,7 @@ export default function OrdersPage() {
                   <p className="text-sm text-charcoal mt-1">{order.order_details}</p>
                 </div>
                 <div className="text-right ml-4">
-                  <p className="font-medium">${order.cost}</p>
+                  <p className="font-medium">${calculateOrderTotal(order).toFixed(2)}</p>
                   <p className="text-xs text-charcoal mt-1">Order {order.order_id}</p>
                   <p className="text-xs text-charcoal">Received: {formatDate(order.order_date)}</p>
                   <p className="text-xs text-charcoal">Due: {formatDate(order.expected_date)}</p>
@@ -577,10 +648,10 @@ export default function OrdersPage() {
                   <div className="mt-3">
                     <select
                       value={order.status}
-                      onChange={(e) => handleStatusChange(order.order_id, e.target.value, order.customer_id)}
-                      disabled={updatingOrder === order.order_id}
+                      onChange={(e) => handleStatusChange(String(order.order_id), e.target.value, order.customer_id)}
+                      disabled={updatingOrder === String(order.order_id)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-sm border-0 cursor-pointer ${getStatusColor(order.status)} ${
-                        updatingOrder === order.order_id ? 'opacity-50' : ''
+                        updatingOrder === String(order.order_id) ? 'opacity-50' : ''
                       }`}
                     >
                       {STATUS_OPTIONS.map((status) => (
@@ -614,7 +685,7 @@ export default function OrdersPage() {
                     </svg>
                   </button>
                   <button
-                    onClick={() => handleDeleteClick(order.order_id)}
+                    onClick={() => handleDeleteClick(String(order.order_id))}
                     className="p-2 text-charcoal hover:text-rust transition-colors"
                     title="Delete order"
                   >

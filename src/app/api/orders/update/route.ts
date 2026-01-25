@@ -15,7 +15,17 @@ const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID
 export async function PATCH(request: Request) {
   try {
     const body = await request.json()
-    const { order_id, garment_type, service_type, order_details, quantity, cost, expected_date, internal_notes } = body
+    const { 
+      order_id, 
+      garment_type, 
+      service_type, 
+      order_details, 
+      quantity, 
+      unit_cost,
+      tax_applied,
+      expected_date, 
+      internal_notes 
+    } = body
 
     if (!order_id) {
       return NextResponse.json({ error: 'Missing order_id' }, { status: 400 })
@@ -24,7 +34,7 @@ export async function PATCH(request: Request) {
     // Get all orders to find the row
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Orders!A:P',
+      range: 'Orders!A:Q',
     })
 
     const rows = response.data.values
@@ -35,8 +45,8 @@ export async function PATCH(request: Request) {
     // Find the row index (skip header)
     let rowIndex = -1
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] === order_id) {
-        rowIndex = i
+      if (String(rows[i][0]) === String(order_id)) {
+        rowIndex = i + 1 // +1 for 1-based indexing
         break
       }
     }
@@ -45,29 +55,36 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    // Row in sheet (1-indexed)
-    const sheetRow = rowIndex + 1
-
-    // Update columns D through H (garment_type, service_type, order_details, quantity, cost)
-    // and J (expected_date) and P (internal_notes)
-    await sheets.spreadsheets.values.batchUpdate({
+    // Update columns D-I (garment_type, service_type, order_details, quantity, unit_cost, tax_applied)
+    // and K (expected_date) and Q (internal_notes)
+    
+    // Update D:I (garment_type through tax_applied)
+    await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
+      range: `Orders!D${rowIndex}:I${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
       requestBody: {
-        valueInputOption: 'USER_ENTERED',
-        data: [
-          {
-            range: `Orders!D${sheetRow}:H${sheetRow}`,
-            values: [[garment_type, service_type, order_details, quantity, cost]],
-          },
-          {
-            range: `Orders!J${sheetRow}`,
-            values: [[expected_date]],
-          },
-          {
-            range: `Orders!P${sheetRow}`,
-            values: [[internal_notes]],
-          },
-        ],
+        values: [[garment_type, service_type, order_details, quantity, unit_cost, tax_applied]],
+      },
+    })
+
+    // Update K (expected_date)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Orders!K${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[expected_date]],
+      },
+    })
+
+    // Update Q (internal_notes)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Orders!Q${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[internal_notes || '']],
       },
     })
 

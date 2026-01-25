@@ -32,7 +32,8 @@ export interface Order {
   service_type: string
   order_details: string
   quantity: number
-  cost: number
+  unit_cost: number
+  tax_applied: string
   status: string
   expected_date: string
   payment_date: string
@@ -56,7 +57,7 @@ function rowToOrder(row: string[], headers: string[]): Order {
   const obj: Record<string, string | number> = {}
   headers.forEach((header, index) => {
     const value = row[index] || ''
-    if (header === 'quantity' || header === 'cost') {
+    if (header === 'quantity' || header === 'unit_cost') {
       obj[header] = parseFloat(value) || 0
     } else {
       obj[header] = value
@@ -130,13 +131,13 @@ export async function addCustomer(customer: Omit<Customer, 'customer_id' | 'crea
 
 // ORDERS
 // Column order: A:order_id, B:customer_id, C:order_date, D:garment_type, E:service_type, 
-// F:order_details, G:quantity, H:cost, I:status, J:expected_date, K:payment_date, 
-// L:completed_date, M:picked_up_date, N:notification_sent, O:reminder_sent, P:internal_notes
+// F:order_details, G:quantity, H:unit_cost, I:tax_applied, J:status, K:expected_date, 
+// L:payment_date, M:completed_date, N:picked_up_date, O:notification_sent, P:reminder_sent, Q:internal_notes
 
 export async function getOrders(): Promise<Order[]> {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'Orders!A:P',
+    range: 'Orders!A:Q',
   })
 
   const rows = response.data.values
@@ -181,26 +182,27 @@ export async function addOrder(order: Omit<Order, 'order_id' | 'order_date' | 's
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'Orders!A:P',
+    range: 'Orders!A:Q',
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[
-        newOrder.order_id,        // A
-        newOrder.customer_id,     // B
-        newOrder.order_date,      // C
-        newOrder.garment_type,    // D
-        newOrder.service_type,    // E
-        newOrder.order_details,   // F
-        newOrder.quantity,        // G
-        newOrder.cost,            // H
-        newOrder.status,          // I
-        newOrder.expected_date,   // J
-        newOrder.payment_date,    // K
-        newOrder.completed_date,  // L
-        newOrder.picked_up_date,  // M
-        newOrder.notification_sent, // N
-        newOrder.reminder_sent,   // O
-        newOrder.internal_notes,  // P
+        newOrder.order_id,          // A
+        newOrder.customer_id,       // B
+        newOrder.order_date,        // C
+        newOrder.garment_type,      // D
+        newOrder.service_type,      // E
+        newOrder.order_details,     // F
+        newOrder.quantity,          // G
+        newOrder.unit_cost,         // H
+        newOrder.tax_applied,       // I
+        newOrder.status,            // J
+        newOrder.expected_date,     // K
+        newOrder.payment_date,      // L
+        newOrder.completed_date,    // M
+        newOrder.picked_up_date,    // N
+        newOrder.notification_sent, // O
+        newOrder.reminder_sent,     // P
+        newOrder.internal_notes,    // Q
       ]],
     },
   })
@@ -210,7 +212,7 @@ export async function addOrder(order: Omit<Order, 'order_id' | 'order_date' | 's
 
 export async function updateOrderStatus(orderId: string, newStatus: string): Promise<boolean> {
   const orders = await getOrders()
-  const orderIndex = orders.findIndex(o => o.order_id === orderId)
+  const orderIndex = orders.findIndex(o => String(o.order_id) === String(orderId))
   
   if (orderIndex === -1) return false
 
@@ -221,10 +223,10 @@ export async function updateOrderStatus(orderId: string, newStatus: string): Pro
   const sheetRow = orderIndex + 2
   const today = new Date().toISOString().split('T')[0]
   
-  // Update status (column I)
+  // Update status (column J)
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `Orders!I${sheetRow}`,
+    range: `Orders!J${sheetRow}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [[newStatus]],
@@ -233,42 +235,41 @@ export async function updateOrderStatus(orderId: string, newStatus: string): Pro
 
   // Handle date updates based on status transitions
   if (newStatus === 'Ready') {
-    // Set completed_date when marking as Ready
+    // Set completed_date when marking as Ready (column M)
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Orders!L${sheetRow}`,
+      range: `Orders!M${sheetRow}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [[today]],
       },
     })
-    // Clear picked_up_date if going back to Ready
+    // Clear picked_up_date if going back to Ready (column N)
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Orders!M${sheetRow}`,
+      range: `Orders!N${sheetRow}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [['']],
       },
     })
   } else if (newStatus === 'Picked Up') {
-    // Only set picked_up_date if coming from Ready status
+    // Only set picked_up_date if coming from Ready status (column N)
     if (currentStatus === 'Ready') {
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `Orders!M${sheetRow}`,
+        range: `Orders!N${sheetRow}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: {
           values: [[today]],
         },
       })
     }
-    // If jumping from Received to Picked Up (accident), don't set picked_up_date
   } else if (newStatus === 'Received') {
-    // Going back to Received - clear both dates
+    // Going back to Received - clear both dates (columns M and N)
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `Orders!L${sheetRow}:M${sheetRow}`,
+      range: `Orders!M${sheetRow}:N${sheetRow}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [['', '']],

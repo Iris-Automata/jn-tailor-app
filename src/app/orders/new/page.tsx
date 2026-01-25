@@ -28,6 +28,12 @@ export default function NewOrderPage() {
   const [otherGarment, setOtherGarment] = useState('')
   const [otherService, setOtherService] = useState('')
 
+  // Cost calculation
+  const [unitCost, setUnitCost] = useState<number>(0)
+  const [quantity, setQuantity] = useState<number>(1)
+  const [includeTax, setIncludeTax] = useState(false)
+  const TAX_RATE = 0.0825
+
   useEffect(() => {
     fetchCustomers()
   }, [])
@@ -66,6 +72,15 @@ export default function NewOrderPage() {
     setShowDropdown(false)
   }
 
+  // Calculate total cost
+  function calculateTotal(): number {
+    const subtotal = unitCost * quantity
+    if (includeTax) {
+      return subtotal + (subtotal * TAX_RATE)
+    }
+    return subtotal
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     
@@ -98,8 +113,9 @@ export default function NewOrderPage() {
       garment_type: finalGarmentType,
       service_type: finalServiceType,
       order_details: formData.get('order_details') as string,
-      quantity: parseInt(formData.get('quantity') as string) || 1,
-      cost: parseFloat(formData.get('cost') as string) || 0,
+      quantity: quantity,
+      unit_cost: unitCost,
+      tax_applied: includeTax ? 'Yes' : 'No',
       expected_date: formData.get('expected_date') as string,
       payment_date: '',
       internal_notes: formData.get('internal_notes') as string || '',
@@ -160,7 +176,7 @@ export default function NewOrderPage() {
               onFocus={() => setShowDropdown(true)}
             />
             {showDropdown && filteredCustomers.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-cardBg border border-taupe /30 rounded-sm shadow-lg">
+              <div className="absolute z-10 w-full mt-1 bg-cardBg border border-taupe/30 rounded-sm shadow-lg">
                 {filteredCustomers.map((customer) => (
                   <button
                     key={customer.customer_id}
@@ -282,42 +298,76 @@ export default function NewOrderPage() {
           />
         </div>
 
-        {/* Quantity */}
-        <div className="w-32">
-          <label className="block text-sm font-medium mb-2">Quantity</label>
-          <input
-            type="number"
-            name="quantity"
-            min="1"
-            defaultValue="1"
-            className="input-field"
-            required
-          />
-        </div>
-
-        {/* Cost & Date */}
+        {/* Quantity & Unit Cost */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Cost ($)</label>
+            <label className="block text-sm font-medium mb-2">Quantity</label>
             <input
               type="number"
-              name="cost"
+              name="quantity"
+              min="1"
+              value={quantity}
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              className="input-field"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Unit Cost ($)</label>
+            <input
+              type="number"
+              name="unit_cost"
               min="0"
               step="0.01"
+              value={unitCost || ''}
+              onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
               className="input-field"
               placeholder="0.00"
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Expected Ready Date</label>
+        </div>
+
+        {/* Tax Checkbox & Total */}
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
-              type="date"
-              name="expected_date"
-              className="input-field"
-              required
+              type="checkbox"
+              checked={includeTax}
+              onChange={(e) => setIncludeTax(e.target.checked)}
+              className="w-4 h-4 rounded border-taupe/30 text-rust focus:ring-rust"
             />
+            <span className="text-sm">Add tax (8.25%)</span>
+          </label>
+          
+          {/* Total Display */}
+          <div className="bg-cream/50 border border-taupe/20 rounded-sm p-4">
+            <div className="flex justify-between text-sm text-charcoal">
+              <span>Subtotal ({quantity} × ${unitCost.toFixed(2)})</span>
+              <span>${(unitCost * quantity).toFixed(2)}</span>
+            </div>
+            {includeTax && (
+              <div className="flex justify-between text-sm text-charcoal mt-1">
+                <span>Tax (8.25%)</span>
+                <span>${(unitCost * quantity * TAX_RATE).toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-medium mt-2 pt-2 border-t border-taupe/20">
+              <span>Total</span>
+              <span>${calculateTotal().toFixed(2)}</span>
+            </div>
           </div>
+        </div>
+
+        {/* Expected Date */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Expected Ready Date</label>
+          <input
+            type="date"
+            name="expected_date"
+            className="input-field"
+            required
+          />
         </div>
 
         {/* Internal Notes */}

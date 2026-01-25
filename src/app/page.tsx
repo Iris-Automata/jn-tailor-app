@@ -3,14 +3,18 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
+const TAX_RATE = 0.0825
+
 interface Order {
   order_id: string
   customer_id: string
   order_date: string
   garment_type: string
   service_type: string
+  quantity: number
+  unit_cost: number
+  tax_applied: string
   status: string
-  cost: number
   expected_date: string
   completed_date: string
   picked_up_date: string
@@ -105,6 +109,14 @@ export default function Dashboard() {
     return `${month}-${day}-${year}`
   }
 
+  function calculateOrderTotal(order: Order): number {
+    const subtotal = order.unit_cost * order.quantity
+    if (order.tax_applied === 'Yes') {
+      return subtotal + (subtotal * TAX_RATE)
+    }
+    return subtotal
+  }
+
   function openModal(type: 'received' | 'markedReady' | 'pickedUp') {
     const today = new Date().toISOString().split('T')[0]
     let orders: Order[] = []
@@ -163,7 +175,7 @@ export default function Dashboard() {
                           <p className="text-xs text-charcoal">Order {order.order_id}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">${order.cost}</p>
+                          <p className="font-medium">${calculateOrderTotal(order).toFixed(2)}</p>
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(order.status)}`}>
                             {order.status}
                           </span>
@@ -286,7 +298,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">${order.cost}</p>
+                    <p className="font-medium">${calculateOrderTotal(order).toFixed(2)}</p>
                     <p className="text-xs text-charcoal">Due: {formatDate(order.expected_date)}</p>
                   </div>
                 </div>
