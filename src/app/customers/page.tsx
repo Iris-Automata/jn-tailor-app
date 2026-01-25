@@ -59,8 +59,9 @@ export default function CustomersPage() {
       const res = await fetch('/api/customers')
       if (!res.ok) throw new Error('Failed to fetch')
       const data = await res.json()
-      setCustomers(data)
-      setFilteredCustomers(data)
+      const reversedCustomers = [...data].reverse()
+      setCustomers(reversedCustomers)
+      setFilteredCustomers(reversedCustomers)
     } catch (err) {
       setError('Failed to load customers')
       console.error(err)
