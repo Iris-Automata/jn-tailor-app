@@ -143,6 +143,12 @@ export default function CustomersPage() {
     }
   }
 
+  function formatDate(dateStr: string) {
+    if (!dateStr) return ''
+    const [year, month, day] = dateStr.split('-')
+    return `${month}-${day}-${year}`
+  }
+
   return (
     <div className="space-y-6">
       {/* Edit Modal */}
@@ -308,7 +314,7 @@ export default function CustomersPage() {
                 <div className="text-right flex items-center gap-4">
                   <div>
                     <p className="text-xs text-charcoal">Customer since</p>
-                    <p className="text-sm">{customer.created_date}</p>
+                    <p className="text-sm">{formatDate(customer.created_date)}</p>
                   </div>
                   <button
                     onClick={() => openEditModal(customer)}
