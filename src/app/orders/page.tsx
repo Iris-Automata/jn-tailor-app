@@ -706,7 +706,7 @@ export default function OrdersPage() {
                 </div>
                 
                 {/* Edit and Delete Icons - Vertical on the right */}
-                <div className="flex flex-col gap-1 ml-4 mt-4">
+                <div className="flex flex-col gap-1 ml-4">
                   <button
                     onClick={() => openEditModal(order)}
                     className="p-2 text-charcoal hover:text-gold transition-colors"
