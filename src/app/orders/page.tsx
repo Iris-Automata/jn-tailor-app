@@ -643,7 +643,7 @@ export default function OrdersPage() {
         <div className="space-y-3">
           {filteredOrders.map((order) => (
             <div key={order.order_id} className="card hover:border-offwhite/30 transition-colors">
-              <div className="flex items-start justify-between">
+              <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
                 {/* Left side - Customer info */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
@@ -657,7 +657,7 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Middle - Segmented Control for Status */}
-                <div className="flex-1 flex items-center justify-center px-4 self-center">
+                <div className="flex items-center justify-center pl-12">
                   <div className="inline-flex bg-taupe/10 rounded-sm p-1">
                     {STATUS_OPTIONS.map((status) => (
                       <button
@@ -667,11 +667,11 @@ export default function OrdersPage() {
                         className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all ${
                           order.status === status
                             ? status === 'Received'
-                              ? 'bg-gold text-white shadow-sm'
+                              ? 'bg-gold text-cardBg shadow-sm'
                               : status === 'Ready'
-                              ? 'bg-rust text-white shadow-sm'
-                              : 'bg-sage text-white shadow-sm'
-                            : 'text-charcoal hover:text-charcoal/70'
+                              ? 'bg-rust text-cardBg shadow-sm'
+                              : 'bg-sage text-cardBg shadow-sm'
+                            : 'text-white hover:text-charcoal/70'
                         } ${updatingOrder === String(order.order_id) ? 'opacity-50' : ''}`}
                       >
                         {status}
