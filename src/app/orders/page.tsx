@@ -589,7 +589,7 @@ export default function OrdersPage() {
               statusFilter === status
                 ? 'bg-charcoal text-soulsonic'
                 : status === 'Ready'
-                ? 'border border-charcoal/50 text-charcoal hover:bg-charcoal hover:text-charcoal'
+                ? 'border border-charcoal/50 text-charcoal hover:border-charcoal hover:text-charcoal'
                 : 'border border-charcoal/50 text-charcoal hover:border-charcoal hover:text-charcoal'
             }`}
           >
@@ -671,7 +671,7 @@ export default function OrdersPage() {
                               : status === 'Ready'
                               ? 'bg-rust text-cardBg shadow-sm'
                               : 'bg-sage text-cardBg shadow-sm'
-                            : 'text-white hover:text-charcoal/70'
+                            : 'text-charcoal hover:text-white/70'
                         } ${updatingOrder === String(order.order_id) ? 'opacity-50' : ''}`}
                       >
                         {status}
