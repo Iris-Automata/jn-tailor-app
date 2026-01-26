@@ -42,6 +42,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null)
+  const [updatingPayment, setUpdatingPayment] = useState<string | null>(null)
   
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -160,6 +161,34 @@ export default function OrdersPage() {
       alert('Failed to update order status')
     } finally {
       setUpdatingOrder(null)
+    }
+  }
+
+  async function updatePaymentStatus(orderId: string, isPaid: boolean) {
+    setUpdatingPayment(orderId)
+    
+    try {
+      const res = await fetch('/api/orders/payment', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          order_id: orderId, 
+          payment_date: isPaid ? new Date().toISOString().split('T')[0] : '' 
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update')
+
+      setOrders(orders.map(o => 
+        String(o.order_id) === String(orderId) 
+          ? { ...o, payment_date: isPaid ? new Date().toISOString().split('T')[0] : '' } 
+          : o
+      ))
+    } catch (err) {
+      console.error('Failed to update payment status:', err)
+      alert('Failed to update payment status')
+    } finally {
+      setUpdatingPayment(null)
     }
   }
 
@@ -294,19 +323,6 @@ export default function OrdersPage() {
   function getCustomerPhone(customerId: string) {
     const customer = customers.find((c) => c.customer_id === customerId)
     return customer ? customer.phone : ''
-  }
-
-  function getStatusColor(status: string) {
-    switch (status) {
-      case 'Received':
-        return 'bg-gold/20 text-gold'
-      case 'Ready':
-        return 'bg-rust/20 text-rust'
-      case 'Picked Up':
-        return 'bg-sage/20 text-sage'
-      default:
-        return 'bg-taupe/20 text-taupe'
-    }
   }
 
   function formatDate(dateStr: string) {
@@ -628,6 +644,7 @@ export default function OrdersPage() {
           {filteredOrders.map((order) => (
             <div key={order.order_id} className="card hover:border-offwhite/30 transition-colors">
               <div className="flex items-start justify-between">
+                {/* Left side - Customer info */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="font-medium">{getCustomerName(order.customer_id)}</h3>
@@ -638,27 +655,52 @@ export default function OrdersPage() {
                   </p>
                   <p className="text-sm text-charcoal mt-1">{order.order_details}</p>
                 </div>
+
+                {/* Middle - Segmented Control for Status */}
+                <div className="flex-1 flex items-center justify-center px-4 self-center">
+                  <div className="inline-flex bg-taupe/10 rounded-sm p-1">
+                    {STATUS_OPTIONS.map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => handleStatusChange(String(order.order_id), status, order.customer_id)}
+                        disabled={updatingOrder === String(order.order_id)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all ${
+                          order.status === status
+                            ? status === 'Received'
+                              ? 'bg-gold text-white shadow-sm'
+                              : status === 'Ready'
+                              ? 'bg-rust text-white shadow-sm'
+                              : 'bg-sage text-white shadow-sm'
+                            : 'text-charcoal hover:text-charcoal/70'
+                        } ${updatingOrder === String(order.order_id) ? 'opacity-50' : ''}`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right side - Price, Order info, Payment dropdown */}
                 <div className="text-right ml-4">
                   <p className="font-medium">${calculateOrderTotal(order).toFixed(2)}</p>
                   <p className="text-xs text-charcoal mt-1">Order {order.order_id}</p>
                   <p className="text-xs text-charcoal">Received: {formatDate(order.order_date)}</p>
                   <p className="text-xs text-charcoal">Due: {formatDate(order.expected_date)}</p>
                   
-                  {/* Status Dropdown */}
+                  {/* Payment Status Dropdown */}
                   <div className="mt-3">
                     <select
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(String(order.order_id), e.target.value, order.customer_id)}
-                      disabled={updatingOrder === String(order.order_id)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-sm border-0 cursor-pointer ${getStatusColor(order.status)} ${
-                        updatingOrder === String(order.order_id) ? 'opacity-50' : ''
-                      }`}
+                      value={order.payment_date ? 'Paid' : 'Pending'}
+                      onChange={(e) => updatePaymentStatus(String(order.order_id), e.target.value === 'Paid')}
+                      disabled={updatingPayment === String(order.order_id)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-sm border-0 cursor-pointer ${
+                        order.payment_date 
+                          ? 'bg-sage/20 text-sage' 
+                          : 'bg-gold/20 text-gold'
+                      } ${updatingPayment === String(order.order_id) ? 'opacity-50' : ''}`}
                     >
-                      {STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
+                      <option value="Pending">Pending</option>
+                      <option value="Paid">Paid</option>
                     </select>
                   </div>
                 </div>
