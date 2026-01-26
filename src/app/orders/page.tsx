@@ -658,20 +658,20 @@ export default function OrdersPage() {
 
                 {/* Middle - Segmented Control for Status */}
                 <div className="flex items-center justify-center pl-12">
-                  <div className="inline-flex bg-taupe/10 rounded-sm p-1">
+                  <div className="inline-flex bg-charcoal/10 rounded-sm p-1 min-w-[300px]">
                     {STATUS_OPTIONS.map((status) => (
                       <button
                         key={status}
                         onClick={() => handleStatusChange(String(order.order_id), status, order.customer_id)}
                         disabled={updatingOrder === String(order.order_id)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-sm transition-all ${
+                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-sm transition-all whitespace-nowrap ${
                           order.status === status
                             ? status === 'Received'
                               ? 'bg-gold text-cardBg shadow-sm'
                               : status === 'Ready'
                               ? 'bg-rust text-cardBg shadow-sm'
                               : 'bg-sage text-cardBg shadow-sm'
-                            : 'text-charcoal hover:text-white/70'
+                            : 'text-charcoal hover:text-white'
                         } ${updatingOrder === String(order.order_id) ? 'opacity-50' : ''}`}
                       >
                         {status}
