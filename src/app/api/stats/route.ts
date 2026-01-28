@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getOrderStats } from '@/lib/sheets'
+import { getOrderStats } from '@/lib/supabase'
 
 export async function GET() {
   try {

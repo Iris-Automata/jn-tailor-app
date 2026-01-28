@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { updateOrderStatus, getOrders, getCustomerById } from '@/lib/sheets'
+import { updateOrderStatus, getOrders, getCustomerById } from '@/lib/supabase'
 
 const N8N_WEBHOOK_URL = 'https://irisone.app.n8n.cloud/webhook/1cafaa3b-7b6c-4b14-b66d-afe631a6c755'
 const TAX_RATE = 0.0825
@@ -13,7 +13,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Missing order_id or status' }, { status: 400 })
     }
 
-    // Update the order status in Google Sheets
+    // Update the order status in Supabase
     const success = await updateOrderStatus(order_id, status)
     
     if (!success) {
@@ -25,7 +25,7 @@ export async function PATCH(request: Request) {
       try {
         // Get order details
         const orders = await getOrders()
-        const order = orders.find(o => String(o.order_id) === String(order_id))
+        const order = orders.find(o => o.id === order_id)
         
         if (order) {
           // Get customer details
@@ -33,7 +33,7 @@ export async function PATCH(request: Request) {
           
           // Calculate total cost
           const subtotal = order.unit_cost * order.quantity
-          const total = order.tax_applied === 'Yes' ? subtotal + (subtotal * TAX_RATE) : subtotal
+          const total = order.tax_applied ? subtotal + (subtotal * TAX_RATE) : subtotal
           
           if (customer) {
             // Send data to n8n webhook
@@ -41,8 +41,9 @@ export async function PATCH(request: Request) {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                order_id: order.order_id,
-                order_date: order.order_date,
+                order_id: order.id,
+                order_number: order.order_number,
+                order_date: order.created_at?.split('T')[0] || '',
                 customer_first_name: customer.first_name,
                 customer_last_name: customer.last_name,
                 customer_phone: customer.phone,

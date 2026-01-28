@@ -14,6 +14,9 @@ module.exports = {
         rust: '#FF8559',            // accent color (hover states, highlights)
         sage: '#80EF80',            // success/green accent
         gold: '#FFEE8C',            // warning/yellow accent
+        lavender: '#9B8CFF',
+        sky: '#355CFF',
+        orange: '#FFA24D',
         cardBg: '#4A4470',
         charcoal: '#C8C6D8',
         lightgray: '#4D4B5E'
