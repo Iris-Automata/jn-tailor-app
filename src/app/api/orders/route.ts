@@ -24,6 +24,9 @@ export async function GET() {
       notification_sent: o.notification_sent ? 'Yes' : 'No',
       reminder_sent: o.reminder_sent ? 'Yes' : 'No',
       internal_notes: o.internal_notes || '',
+      rush_order: o.rush_order || false,
+      paid: o.paid || false,
+      paid_date: o.paid_date || '',
     }))
     
     return NextResponse.json(transformed)
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
       expected_date: body.expected_date,
       payment_date: body.payment_date || null,
       internal_notes: body.internal_notes || '',
+      rush_order: body.rush_order || false,
+      paid: body.paid || false,
     })
 
     return NextResponse.json({
@@ -68,6 +73,9 @@ export async function POST(request: Request) {
       notification_sent: order.notification_sent ? 'Yes' : 'No',
       reminder_sent: order.reminder_sent ? 'Yes' : 'No',
       internal_notes: order.internal_notes || '',
+      rush_order: order.rush_order || false,
+      paid: order.paid || false,
+      paid_date: order.paid_date || '',
     })
   } catch (error) {
     console.error('Error adding order:', error)

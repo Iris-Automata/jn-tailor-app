@@ -34,6 +34,10 @@ export default function NewOrderPage() {
   const [includeTax, setIncludeTax] = useState(false)
   const TAX_RATE = 0.0825
 
+  // Rush order and payment
+  const [isRushOrder, setIsRushOrder] = useState<boolean | null>(null)
+  const [isPaidToday, setIsPaidToday] = useState<boolean | null>(null)
+
   useEffect(() => {
     fetchCustomers()
   }, [])
@@ -98,6 +102,14 @@ export default function NewOrderPage() {
       setError('Please specify the service type')
       return
     }
+    if (isRushOrder === null) {
+      setError('Please select if this is a rush order')
+      return
+    }
+    if (isPaidToday === null) {
+      setError('Please select if customer is paying today')
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -119,6 +131,8 @@ export default function NewOrderPage() {
       expected_date: formData.get('expected_date') as string,
       payment_date: '',
       internal_notes: formData.get('internal_notes') as string || '',
+      rush_order: isRushOrder,
+      paid: isPaidToday,
     }
 
     try {
@@ -207,6 +221,35 @@ export default function NewOrderPage() {
               Add new customer
             </Link>
           </p>
+        </div>
+
+        {/* Rush Order */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Is this a rush order? *</label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setIsRushOrder(true)}
+              className={`flex-1 py-3 px-4 rounded-sm text-sm font-medium transition-colors ${
+                isRushOrder === true
+                  ? 'bg-rust text-white'
+                  : 'border border-taupe/30 text-charcoal hover:border-charcoal'
+              }`}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsRushOrder(false)}
+              className={`flex-1 py-3 px-4 rounded-sm text-sm font-medium transition-colors ${
+                isRushOrder === false
+                  ? 'bg-sage text-white'
+                  : 'border border-taupe/30 text-charcoal hover:border-charcoal'
+              }`}
+            >
+              No
+            </button>
+          </div>
         </div>
 
         {/* Garment & Service */}
@@ -381,6 +424,35 @@ export default function NewOrderPage() {
             className="input-field resize-none"
             placeholder="Notes for staff only..."
           />
+        </div>
+
+        {/* Paying Today */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Paying today? *</label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setIsPaidToday(true)}
+              className={`flex-1 py-3 px-4 rounded-sm text-sm font-medium transition-colors ${
+                isPaidToday === true
+                  ? 'bg-sage text-white'
+                  : 'border border-taupe/30 text-charcoal hover:border-charcoal'
+              }`}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPaidToday(false)}
+              className={`flex-1 py-3 px-4 rounded-sm text-sm font-medium transition-colors ${
+                isPaidToday === false
+                  ? 'bg-gold text-cardBg'
+                  : 'border border-taupe/30 text-charcoal hover:border-charcoal'
+              }`}
+            >
+              No
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-4 pt-4">
