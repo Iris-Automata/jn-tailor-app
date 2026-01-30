@@ -19,7 +19,8 @@ module.exports = {
         orange: '#FFA24D',
         cardBg: '#4A4470',
         charcoal: '#C8C6D8',
-        lightgray: '#4D4B5E'
+        lightgray: '#4D4B5E',
+        red: '#FF6B6B'
       },
       fontFamily: {
         display: ['var(--font-sora)', 'sans-serif'],

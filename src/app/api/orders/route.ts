@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       unit_cost: body.unit_cost || 0,
       tax_applied: body.tax_applied === 'Yes' || body.tax_applied === true,
       expected_date: body.expected_date,
-      payment_date: body.paid ? today : null,
+      payment_date: body.paid ? today : undefined,
       internal_notes: body.internal_notes || '',
       rush_order: body.rush_order || false,
     })
