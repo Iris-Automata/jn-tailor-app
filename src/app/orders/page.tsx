@@ -22,8 +22,6 @@ interface Order {
   reminder_sent: string
   internal_notes: string
   rush_order: boolean
-  paid: boolean
-  paid_date: string
 }
 
 interface Customer {
@@ -84,7 +82,7 @@ export default function OrdersPage() {
     if (statusFilter === 'Rush') {
       filtered = filtered.filter((o) => o.rush_order === true)
     } else if (statusFilter === 'Unpaid') {
-      filtered = filtered.filter((o) => o.paid === false)
+      filtered = filtered.filter((o) => !o.payment_date)
     } else if (statusFilter !== 'All') {
       filtered = filtered.filter((o) => o.status === statusFilter)
     }
@@ -663,7 +661,7 @@ export default function OrdersPage() {
                         Rush
                       </span>
                     )}
-                    {order.paid && (
+                    {order.payment_date && (
                       <span className="text-sage" title="Paid">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
@@ -703,29 +701,12 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Right side - Price, Order info, Payment dropdown */}
+                {/* Right side - Price, Order info */}
                 <div className="text-right ml-4">
                   <p className="font-medium">${calculateOrderTotal(order).toFixed(2)}</p>
                   <p className="text-xs text-charcoal mt-1">Order {order.order_id}</p>
                   <p className="text-xs text-charcoal">Received: {formatDate(order.order_date)}</p>
                   <p className="text-xs text-charcoal">Due: {formatDate(order.expected_date)}</p>
-                  
-                  {/* Payment Status Dropdown */}
-                  <div className="mt-3">
-                    <select
-                      value={order.payment_date ? 'Paid' : 'Pending'}
-                      onChange={(e) => updatePaymentStatus(String(order.order_id), e.target.value === 'Paid')}
-                      disabled={updatingPayment === String(order.order_id)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-sm border-0 cursor-pointer ${
-                        order.payment_date 
-                          ? 'bg-sage/20 text-sage' 
-                          : 'bg-gold/20 text-gold'
-                      } ${updatingPayment === String(order.order_id) ? 'opacity-50' : ''}`}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Paid">Paid</option>
-                    </select>
-                  </div>
                 </div>
                 
                 {/* Edit and Delete Icons - Vertical on the right */}

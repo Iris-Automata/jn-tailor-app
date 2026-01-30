@@ -38,8 +38,6 @@ export interface Order {
   reminder_sent: boolean
   internal_notes: string
   rush_order: boolean
-  paid: boolean
-  paid_date: string
   created_at: string
 }
 
@@ -158,12 +156,9 @@ export async function addOrder(order: {
   payment_date?: string
   internal_notes?: string
   rush_order?: boolean
-  paid?: boolean
-  paid_date?: string
 }): Promise<Order> {
   // Generate a unique 7-digit order number
   const order_number = String(Math.floor(1000000 + Math.random() * 9000000))
-  const today = new Date().toISOString().split('T')[0]
   
   const { data, error } = await supabase
     .from('orders')
@@ -184,8 +179,6 @@ export async function addOrder(order: {
       notification_sent: false,
       reminder_sent: false,
       rush_order: order.rush_order || false,
-      paid: order.paid || false,
-      paid_date: order.paid ? today : null,
     })
     .select()
     .single()

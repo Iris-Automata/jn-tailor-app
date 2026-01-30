@@ -25,8 +25,6 @@ export async function GET() {
       reminder_sent: o.reminder_sent ? 'Yes' : 'No',
       internal_notes: o.internal_notes || '',
       rush_order: o.rush_order || false,
-      paid: o.paid || false,
-      paid_date: o.paid_date || '',
     }))
     
     return NextResponse.json(transformed)
@@ -39,6 +37,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    const today = new Date().toISOString().split('T')[0]
     
     const order = await addOrder({
       customer_id: body.customer_id,
@@ -49,10 +48,9 @@ export async function POST(request: Request) {
       unit_cost: body.unit_cost || 0,
       tax_applied: body.tax_applied === 'Yes' || body.tax_applied === true,
       expected_date: body.expected_date,
-      payment_date: body.payment_date || null,
+      payment_date: body.paid ? today : null,
       internal_notes: body.internal_notes || '',
       rush_order: body.rush_order || false,
-      paid: body.paid || false,
     })
 
     return NextResponse.json({
@@ -74,8 +72,6 @@ export async function POST(request: Request) {
       reminder_sent: order.reminder_sent ? 'Yes' : 'No',
       internal_notes: order.internal_notes || '',
       rush_order: order.rush_order || false,
-      paid: order.paid || false,
-      paid_date: order.paid_date || '',
     })
   } catch (error) {
     console.error('Error adding order:', error)
