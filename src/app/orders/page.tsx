@@ -29,10 +29,13 @@ interface Customer {
   first_name: string
   last_name: string
   phone: string
+  email: string
 }
 
 const STATUS_OPTIONS = ['Received', 'Ready', 'Picked Up']
 const TAX_RATE = 0.0825
+const GARMENT_OPTIONS = ['Pants', 'Jacket', 'Shirt', 'Dress', 'Skirt', 'Suit', 'Coat', 'Other']
+const SERVICE_OPTIONS = ['Hem', 'Taper', 'Take In', 'Let Out', 'Shorten', 'Lengthen', 'Repair', 'Custom', 'Other']
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -43,16 +46,18 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null)
-  const [updatingPayment, setUpdatingPayment] = useState<string | null>(null)
   
-  // Confirmation modal state
+  // Selected order for detail panel
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  
+  // Sort state
+  const [sortField, setSortField] = useState<'order_date' | 'customer' | 'status' | 'total'>('order_date')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+
+  // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [pendingStatusChange, setPendingStatusChange] = useState<{orderId: string, newStatus: string, customerName: string} | null>(null)
-
-  // Warning modal state (for Received -> Picked Up)
   const [showWarningModal, setShowWarningModal] = useState(false)
-
-  // Delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -96,13 +101,35 @@ export default function OrdersPage() {
           : ''
         return (
           String(o.order_id).toLowerCase().includes(query) ||
-          customerName.includes(query)
+          customerName.includes(query) ||
+          o.garment_type.toLowerCase().includes(query) ||
+          o.service_type.toLowerCase().includes(query)
         )
       })
     }
 
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      let comparison = 0
+      
+      if (sortField === 'order_date') {
+        comparison = new Date(a.order_date).getTime() - new Date(b.order_date).getTime()
+      } else if (sortField === 'customer') {
+        const nameA = getCustomerName(a.customer_id).toLowerCase()
+        const nameB = getCustomerName(b.customer_id).toLowerCase()
+        comparison = nameA.localeCompare(nameB)
+      } else if (sortField === 'status') {
+        const statusOrder = { 'Received': 0, 'Ready': 1, 'Picked Up': 2 }
+        comparison = (statusOrder[a.status as keyof typeof statusOrder] || 0) - (statusOrder[b.status as keyof typeof statusOrder] || 0)
+      } else if (sortField === 'total') {
+        comparison = calculateOrderTotal(a) - calculateOrderTotal(b)
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
+
     setFilteredOrders(filtered)
-  }, [searchQuery, statusFilter, orders, customers])
+  }, [searchQuery, statusFilter, orders, customers, sortField, sortDirection])
 
   async function fetchData() {
     try {
@@ -113,10 +140,8 @@ export default function OrdersPage() {
       if (!ordersRes.ok || !customersRes.ok) throw new Error('Failed to fetch')
       const ordersData = await ordersRes.json()
       const customersData = await customersRes.json()
-      // Reverse the order so most recent is first
-      const reversedOrders = [...ordersData].reverse()
-      setOrders(reversedOrders)
-      setFilteredOrders(reversedOrders)
+      setOrders(ordersData)
+      setFilteredOrders(ordersData)
       setCustomers(customersData)
     } catch (err) {
       setError('Failed to load orders')
@@ -126,11 +151,19 @@ export default function OrdersPage() {
     }
   }
 
+  function handleSort(field: typeof sortField) {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('desc')
+    }
+  }
+
   function handleStatusChange(orderId: string, newStatus: string, customerId: string) {
     const customerName = getCustomerName(customerId)
     const currentOrder = orders.find(o => String(o.order_id) === String(orderId))
     
-    // Check if trying to go from Received directly to Picked Up
     if (currentOrder?.status === 'Received' && newStatus === 'Picked Up') {
       setShowWarningModal(true)
       return
@@ -161,6 +194,11 @@ export default function OrdersPage() {
       setOrders(orders.map(o => 
         String(o.order_id) === String(orderId) ? { ...o, status: newStatus } : o
       ))
+      
+      // Update selected order if it's the one being changed
+      if (selectedOrder && String(selectedOrder.order_id) === String(orderId)) {
+        setSelectedOrder({ ...selectedOrder, status: newStatus })
+      }
     } catch (err) {
       console.error('Failed to update status:', err)
       alert('Failed to update order status')
@@ -170,30 +208,27 @@ export default function OrdersPage() {
   }
 
   async function updatePaymentStatus(orderId: string, isPaid: boolean) {
-    setUpdatingPayment(orderId)
+    const paymentDate = isPaid ? new Date().toISOString().split('T')[0] : ''
     
     try {
       const res = await fetch('/api/orders/payment', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          order_id: orderId, 
-          payment_date: isPaid ? new Date().toISOString().split('T')[0] : '' 
-        }),
+        body: JSON.stringify({ order_id: orderId, payment_date: paymentDate }),
       })
 
       if (!res.ok) throw new Error('Failed to update')
 
       setOrders(orders.map(o => 
-        String(o.order_id) === String(orderId) 
-          ? { ...o, payment_date: isPaid ? new Date().toISOString().split('T')[0] : '' } 
-          : o
+        String(o.order_id) === String(orderId) ? { ...o, payment_date: paymentDate } : o
       ))
+      
+      if (selectedOrder && String(selectedOrder.order_id) === String(orderId)) {
+        setSelectedOrder({ ...selectedOrder, payment_date: paymentDate })
+      }
     } catch (err) {
       console.error('Failed to update payment status:', err)
       alert('Failed to update payment status')
-    } finally {
-      setUpdatingPayment(null)
     }
   }
 
@@ -202,12 +237,12 @@ export default function OrdersPage() {
     setEditForm({
       garment_type: order.garment_type,
       service_type: order.service_type,
-      order_details: order.order_details,
+      order_details: order.order_details || '',
       quantity: order.quantity,
       unit_cost: order.unit_cost,
       tax_applied: order.tax_applied === 'Yes',
-      expected_date: order.expected_date,
-      internal_notes: order.internal_notes,
+      expected_date: order.expected_date || '',
+      internal_notes: order.internal_notes || '',
     })
     setShowEditModal(true)
   }
@@ -215,33 +250,16 @@ export default function OrdersPage() {
   function closeEditModal() {
     setShowEditModal(false)
     setEditingOrder(null)
-    setEditForm({
-      garment_type: '',
-      service_type: '',
-      order_details: '',
-      quantity: 1,
-      unit_cost: 0,
-      tax_applied: false,
-      expected_date: '',
-      internal_notes: '',
-    })
   }
 
   function calculateEditTotal(): number {
     const subtotal = editForm.unit_cost * editForm.quantity
-    if (editForm.tax_applied) {
-      return subtotal + (subtotal * TAX_RATE)
-    }
-    return subtotal
+    return editForm.tax_applied ? subtotal + (subtotal * TAX_RATE) : subtotal
   }
 
-  // Calculate total for display in order cards
   function calculateOrderTotal(order: Order): number {
     const subtotal = order.unit_cost * order.quantity
-    if (order.tax_applied === 'Yes') {
-      return subtotal + (subtotal * TAX_RATE)
-    }
-    return subtotal
+    return order.tax_applied === 'Yes' ? subtotal + (subtotal * TAX_RATE) : subtotal
   }
 
   async function handleSaveOrder() {
@@ -267,20 +285,25 @@ export default function OrdersPage() {
 
       if (!res.ok) throw new Error('Failed to update')
 
+      const updatedOrder = {
+        ...editingOrder,
+        garment_type: editForm.garment_type,
+        service_type: editForm.service_type,
+        order_details: editForm.order_details,
+        quantity: editForm.quantity,
+        unit_cost: editForm.unit_cost,
+        tax_applied: editForm.tax_applied ? 'Yes' : 'No',
+        expected_date: editForm.expected_date,
+        internal_notes: editForm.internal_notes,
+      }
+
       setOrders(orders.map(o => 
-        String(o.order_id) === String(editingOrder.order_id) 
-          ? { ...o, 
-              garment_type: editForm.garment_type,
-              service_type: editForm.service_type,
-              order_details: editForm.order_details,
-              quantity: editForm.quantity,
-              unit_cost: editForm.unit_cost,
-              tax_applied: editForm.tax_applied ? 'Yes' : 'No',
-              expected_date: editForm.expected_date,
-              internal_notes: editForm.internal_notes,
-            }
-          : o
+        String(o.order_id) === String(editingOrder.order_id) ? updatedOrder : o
       ))
+      
+      if (selectedOrder && String(selectedOrder.order_id) === String(editingOrder.order_id)) {
+        setSelectedOrder(updatedOrder)
+      }
       
       closeEditModal()
     } catch (err) {
@@ -310,6 +333,11 @@ export default function OrdersPage() {
       if (!res.ok) throw new Error('Failed to delete')
 
       setOrders(orders.filter(o => String(o.order_id) !== String(orderToDelete)))
+      
+      if (selectedOrder && String(selectedOrder.order_id) === String(orderToDelete)) {
+        setSelectedOrder(null)
+      }
+      
       setShowDeleteModal(false)
       setOrderToDelete(null)
     } catch (err) {
@@ -325,34 +353,395 @@ export default function OrdersPage() {
     return customer ? `${customer.first_name} ${customer.last_name}` : 'Unknown'
   }
 
-  function getCustomerPhone(customerId: string) {
-    const customer = customers.find((c) => c.customer_id === customerId)
-    return customer ? customer.phone : ''
+  function getCustomer(customerId: string) {
+    return customers.find((c) => c.customer_id === customerId)
   }
 
   function formatDate(dateStr: string) {
-    if (!dateStr) return ''
+    if (!dateStr) return '—'
     const [year, month, day] = dateStr.split('-')
-    return `${month}-${day}-${year}`
+    return `${month}/${day}/${year}`
+  }
+
+  function getStatusColor(status: string) {
+    switch (status) {
+      case 'Received': return 'bg-gold/20 text-gold'
+      case 'Ready': return 'bg-rust/20 text-rust'
+      case 'Picked Up': return 'bg-sage/20 text-sage'
+      default: return 'bg-taupe/20 text-taupe'
+    }
+  }
+
+  function getStatusBgColor(status: string) {
+    switch (status) {
+      case 'Received': return 'bg-gold text-soulsonic'
+      case 'Ready': return 'bg-rust text-soulsonic'
+      case 'Picked Up': return 'bg-sage text-soulsonic'
+      default: return 'bg-taupe text-soulsonic'
+    }
   }
 
   const statuses = ['All', 'Rush', 'Received', 'Ready', 'Picked Up', 'Unpaid']
 
   return (
-    <div className="space-y-6">
-      {/* Warning Modal - Cannot skip Ready status */}
+    <div className="flex gap-6 h-[calc(100vh-120px)]">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="font-display text-3xl text-offwhite mb-1">Orders</h1>
+            <p className="text-charcoal">{filteredOrders.length} orders</p>
+          </div>
+          <Link href="/orders/new" className="btn-primary">
+            + New Order
+          </Link>
+        </div>
+
+        {/* Filters & Search */}
+        <div className="flex gap-4 mb-4">
+          <div className="flex gap-2 flex-wrap">
+            {statuses.map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-sm text-sm transition-colors ${
+                  statusFilter === status
+                    ? 'bg-offwhite text-soulsonic'
+                    : 'border border-taupe/30 text-charcoal hover:border-offwhite hover:text-offwhite'
+                }`}
+              >
+                {status === 'Ready' ? 'Ready for Pickup' : status}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex-1 max-w-md ml-auto relative">
+            <input
+              type="text"
+              placeholder="Search orders..."
+              className="input-field pl-10 py-2"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Orders Table */}
+        <div className="flex-1 overflow-hidden rounded-sm border border-taupe/20">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-charcoal">Loading orders...</p>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-rust">{error}</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-charcoal">
+                {searchQuery || statusFilter !== 'All' ? 'No orders found matching your filters' : 'No orders yet'}
+              </p>
+            </div>
+          ) : (
+            <div className="h-full overflow-auto">
+              <table className="w-full">
+                <thead className="bg-cardBg sticky top-0 z-10">
+                  <tr className="text-left text-sm text-charcoal border-b border-taupe/20">
+                    <th 
+                      className="px-4 py-3 font-medium cursor-pointer hover:text-offwhite transition-colors"
+                      onClick={() => handleSort('customer')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Customer
+                        {sortField === 'customer' && (
+                          <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 font-medium">Service</th>
+                    <th 
+                      className="px-4 py-3 font-medium cursor-pointer hover:text-offwhite transition-colors"
+                      onClick={() => handleSort('status')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Status
+                        {sortField === 'status' && (
+                          <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="px-4 py-3 font-medium cursor-pointer hover:text-offwhite transition-colors"
+                      onClick={() => handleSort('order_date')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Date
+                        {sortField === 'order_date' && (
+                          <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="px-4 py-3 font-medium text-right cursor-pointer hover:text-offwhite transition-colors"
+                      onClick={() => handleSort('total')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        Total
+                        {sortField === 'total' && (
+                          <span className="text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-taupe/10">
+                  {filteredOrders.map((order) => (
+                    <tr 
+                      key={order.order_id} 
+                      className={`hover:bg-cardBg/50 transition-colors cursor-pointer ${
+                        selectedOrder?.order_id === order.order_id ? 'bg-cardBg' : ''
+                      }`}
+                      onClick={() => setSelectedOrder(order)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-offwhite">{getCustomerName(order.customer_id)}</span>
+                          {order.rush_order && (
+                            <span className="text-rust" title="Rush Order">⚡</span>
+                          )}
+                          {order.payment_date && (
+                            <span className="text-sage" title="Paid">$</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-charcoal">#{order.order_id}</span>
+                      </td>
+                      <td className="px-4 py-3 text-charcoal text-sm">
+                        {order.garment_type} • {order.service_type}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(order.status)}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-charcoal text-sm">
+                        {formatDate(order.order_date)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-offwhite">
+                        ${calculateOrderTotal(order).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Detail Panel */}
+      <div className="w-96 flex-shrink-0">
+        {selectedOrder ? (
+          <div className="bg-cardBg rounded-sm border border-taupe/20 h-full flex flex-col">
+            {/* Header */}
+            <div className="p-4 border-b border-taupe/20">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-display text-lg text-offwhite">Order #{selectedOrder.order_id}</h2>
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="p-1 text-charcoal hover:text-offwhite transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <span className={`px-3 py-1 rounded text-sm font-medium ${getStatusBgColor(selectedOrder.status)}`}>
+                {selectedOrder.status}
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-4 space-y-6">
+              {/* Customer Info */}
+              <div>
+                <h3 className="text-xs font-medium text-charcoal uppercase tracking-wide mb-2">Customer</h3>
+                <div className="space-y-1">
+                  <p className="text-offwhite font-medium">{getCustomerName(selectedOrder.customer_id)}</p>
+                  <p className="text-charcoal text-sm">{getCustomer(selectedOrder.customer_id)?.phone || '—'}</p>
+                  <p className="text-charcoal text-sm">{getCustomer(selectedOrder.customer_id)?.email || '—'}</p>
+                </div>
+              </div>
+
+              {/* Order Details */}
+              <div>
+                <h3 className="text-xs font-medium text-charcoal uppercase tracking-wide mb-2">Order Details</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-charcoal">Garment</span>
+                    <span className="text-offwhite">{selectedOrder.garment_type}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-charcoal">Service</span>
+                    <span className="text-offwhite">{selectedOrder.service_type}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-charcoal">Quantity</span>
+                    <span className="text-offwhite">{selectedOrder.quantity}</span>
+                  </div>
+                  {selectedOrder.order_details && (
+                    <div className="pt-2">
+                      <span className="text-charcoal text-sm">Notes:</span>
+                      <p className="text-offwhite text-sm mt-1">{selectedOrder.order_details}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Dates */}
+              <div>
+                <h3 className="text-xs font-medium text-charcoal uppercase tracking-wide mb-2">Dates</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-charcoal">Received</span>
+                    <span className="text-offwhite">{formatDate(selectedOrder.order_date)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-charcoal">Expected</span>
+                    <span className="text-offwhite">{formatDate(selectedOrder.expected_date)}</span>
+                  </div>
+                  {selectedOrder.completed_date && (
+                    <div className="flex justify-between">
+                      <span className="text-charcoal">Completed</span>
+                      <span className="text-offwhite">{formatDate(selectedOrder.completed_date)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.picked_up_date && (
+                    <div className="flex justify-between">
+                      <span className="text-charcoal">Picked Up</span>
+                      <span className="text-offwhite">{formatDate(selectedOrder.picked_up_date)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pricing */}
+              <div>
+                <h3 className="text-xs font-medium text-charcoal uppercase tracking-wide mb-2">Pricing</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-charcoal">Subtotal</span>
+                    <span className="text-offwhite">${(selectedOrder.unit_cost * selectedOrder.quantity).toFixed(2)}</span>
+                  </div>
+                  {selectedOrder.tax_applied === 'Yes' && (
+                    <div className="flex justify-between">
+                      <span className="text-charcoal">Tax (8.25%)</span>
+                      <span className="text-offwhite">${(selectedOrder.unit_cost * selectedOrder.quantity * TAX_RATE).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t border-taupe/20 font-medium">
+                    <span className="text-offwhite">Total</span>
+                    <span className="text-offwhite">${calculateOrderTotal(selectedOrder).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Status */}
+              <div>
+                <h3 className="text-xs font-medium text-charcoal uppercase tracking-wide mb-2">Payment</h3>
+                <div className="flex items-center justify-between">
+                  <span className={selectedOrder.payment_date ? 'text-sage' : 'text-red'}>
+                    {selectedOrder.payment_date ? `Paid on ${formatDate(selectedOrder.payment_date)}` : 'Unpaid'}
+                  </span>
+                  <button
+                    onClick={() => updatePaymentStatus(String(selectedOrder.order_id), !selectedOrder.payment_date)}
+                    className={`text-xs px-2 py-1 rounded transition-colors ${
+                      selectedOrder.payment_date 
+                        ? 'text-charcoal hover:text-red' 
+                        : 'bg-sage/20 text-sage hover:bg-sage/30'
+                    }`}
+                  >
+                    {selectedOrder.payment_date ? 'Mark Unpaid' : 'Mark Paid'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Control */}
+              <div>
+                <h3 className="text-xs font-medium text-charcoal uppercase tracking-wide mb-2">Update Status</h3>
+                <div className="flex gap-2">
+                  {STATUS_OPTIONS.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => handleStatusChange(String(selectedOrder.order_id), status, selectedOrder.customer_id)}
+                      disabled={updatingOrder === String(selectedOrder.order_id)}
+                      className={`flex-1 px-3 py-2 text-xs font-medium rounded-sm transition-all ${
+                        selectedOrder.status === status
+                          ? getStatusBgColor(status)
+                          : 'border border-taupe/30 text-charcoal hover:border-offwhite hover:text-offwhite'
+                      } ${updatingOrder === String(selectedOrder.order_id) ? 'opacity-50' : ''}`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Internal Notes */}
+              {selectedOrder.internal_notes && (
+                <div>
+                  <h3 className="text-xs font-medium text-charcoal uppercase tracking-wide mb-2">Internal Notes</h3>
+                  <p className="text-charcoal text-sm bg-soulsonic/50 p-3 rounded">{selectedOrder.internal_notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 border-t border-taupe/20 flex gap-2">
+              <button
+                onClick={() => openEditModal(selectedOrder)}
+                className="flex-1 btn-secondary text-sm py-2"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleDeleteClick(String(selectedOrder.order_id))}
+                className="px-4 py-2 text-red border border-red/30 rounded-sm hover:bg-red/10 transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-cardBg rounded-sm border border-taupe/20 h-full flex items-center justify-center">
+            <div className="text-center text-charcoal">
+              <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <p>Select an order to view details</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
       {showWarningModal && (
-        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
-          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg">
-            <h3 className="font-display text-xl mb-4">Cannot Mark as Picked Up</h3>
+        <div className="fixed inset-0 bg-soulsonic/80 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg border border-taupe/20">
+            <h3 className="font-display text-xl text-offwhite mb-4">Cannot Mark as Picked Up</h3>
             <p className="text-charcoal mb-6">
-              This order cannot be picked up if it has not been marked ready yet. <strong>Please mark the order as <span className="font-bold text-rust">"Ready"</span> first.</strong>
+              This order cannot be picked up if it has not been marked ready yet. Please mark the order as <span className="font-bold text-rust">"Ready"</span> first.
             </p>
             <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowWarningModal(false)}
-                className="btn-primary"
-              >
+              <button onClick={() => setShowWarningModal(false)} className="btn-primary">
                 OK
               </button>
             </div>
@@ -360,13 +749,12 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Confirmation Modal */}
       {showConfirmModal && pendingStatusChange && (
-        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
-          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg">
-            <h3 className="font-display text-xl mb-4">Confirm Order Ready</h3>
+        <div className="fixed inset-0 bg-soulsonic/80 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg border border-taupe/20">
+            <h3 className="font-display text-xl text-offwhite mb-4">Confirm Order Ready</h3>
             <p className="text-charcoal mb-6">
-              Are you sure this order is complete? <strong>{pendingStatusChange.customerName}</strong> will be notified their order is ready for pickup.
+              Are you sure this order is complete? <strong className="text-offwhite">{pendingStatusChange.customerName}</strong> will be notified their order is ready for pickup.
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -376,11 +764,11 @@ export default function OrdersPage() {
                 }}
                 className="btn-secondary"
               >
-                No, Cancel
+                Cancel
               </button>
               <button
                 onClick={() => updateStatus(pendingStatusChange.orderId, pendingStatusChange.newStatus)}
-                className="bg-cardBg text-rust border border-rust px-6 py-3 rounded-sm font-medium hover:bg-rust hover:border-rust hover:text-soulsonic transition-colors duration-200"
+                className="bg-rust text-soulsonic px-6 py-3 rounded-sm font-medium hover:bg-rust/80 transition-colors"
               >
                 Yes, Mark Ready
               </button>
@@ -389,11 +777,10 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && orderToDelete && (
-        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
-          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg">
-            <h3 className="font-display text-xl mb-4">Delete Order</h3>
+        <div className="fixed inset-0 bg-soulsonic/80 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-md mx-4 shadow-lg border border-taupe/20">
+            <h3 className="font-display text-xl text-offwhite mb-4">Delete Order</h3>
             <p className="text-charcoal mb-6">
               Are you sure you want to delete this order? This action cannot be undone.
             </p>
@@ -410,7 +797,7 @@ export default function OrdersPage() {
               </button>
               <button
                 onClick={handleDeleteOrder}
-                className="bg-rust text-white px-6 py-3 rounded-sm font-medium hover:bg-rust/80 transition-colors duration-200 disabled:opacity-50"
+                className="bg-red text-offwhite px-6 py-3 rounded-sm font-medium hover:bg-red/80 transition-colors disabled:opacity-50"
                 disabled={deleting}
               >
                 {deleting ? 'Deleting...' : 'Delete'}
@@ -420,65 +807,53 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Edit Order Modal */}
       {showEditModal && editingOrder && (
-        <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50">
-          <div className="bg-cardBg rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg max-h-[90vh] overflow-y-auto">
-            <h3 className="font-display text-xl mb-4">Edit Order</h3>
+        <div className="fixed inset-0 bg-soulsonic/80 flex items-center justify-center z-50">
+          <div className="bg-cardBg rounded-sm p-6 max-w-lg w-full mx-4 shadow-lg max-h-[90vh] overflow-y-auto border border-taupe/20">
+            <h3 className="font-display text-xl text-offwhite mb-4">Edit Order</h3>
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Garment Type</label>
+                  <label className="block text-sm font-medium text-charcoal mb-2">Garment Type</label>
                   <select
                     value={editForm.garment_type}
                     onChange={(e) => setEditForm({ ...editForm, garment_type: e.target.value })}
                     className="input-field"
                   >
-                    <option value="Pants">Pants</option>
-                    <option value="Jacket">Jacket</option>
-                    <option value="Shirt">Shirt</option>
-                    <option value="Dress">Dress</option>
-                    <option value="Skirt">Skirt</option>
-                    <option value="Suit">Suit</option>
-                    <option value="Coat">Coat</option>
-                    <option value="Other">Other</option>
+                    {GARMENT_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Service Type</label>
+                  <label className="block text-sm font-medium text-charcoal mb-2">Service Type</label>
                   <select
                     value={editForm.service_type}
                     onChange={(e) => setEditForm({ ...editForm, service_type: e.target.value })}
                     className="input-field"
                   >
-                    <option value="Hem">Hem</option>
-                    <option value="Taper">Taper</option>
-                    <option value="Take In">Take In</option>
-                    <option value="Let Out">Let Out</option>
-                    <option value="Shorten">Shorten</option>
-                    <option value="Lengthen">Lengthen</option>
-                    <option value="Repair">Repair</option>
-                    <option value="Custom">Custom</option>
-                    <option value="Other">Other</option>
+                    {SERVICE_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Order Details</label>
+                <label className="block text-sm font-medium text-charcoal mb-2">Order Details</label>
                 <textarea
                   value={editForm.order_details}
                   onChange={(e) => setEditForm({ ...editForm, order_details: e.target.value })}
                   rows={3}
                   className="input-field resize-none"
+                  placeholder="Additional notes..."
                 />
               </div>
 
-              {/* Quantity & Unit Cost */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Quantity</label>
+                  <label className="block text-sm font-medium text-charcoal mb-2">Quantity</label>
                   <input
                     type="number"
                     value={editForm.quantity}
@@ -488,7 +863,7 @@ export default function OrdersPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Unit Cost ($)</label>
+                  <label className="block text-sm font-medium text-charcoal mb-2">Unit Cost ($)</label>
                   <input
                     type="number"
                     value={editForm.unit_cost || ''}
@@ -501,7 +876,6 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              {/* Tax Checkbox & Total */}
               <div className="space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -510,11 +884,10 @@ export default function OrdersPage() {
                     onChange={(e) => setEditForm({ ...editForm, tax_applied: e.target.checked })}
                     className="w-4 h-4 rounded border-taupe/30 text-rust focus:ring-rust"
                   />
-                  <span className="text-sm">Add tax (8.25%)</span>
+                  <span className="text-sm text-charcoal">Add tax (8.25%)</span>
                 </label>
                 
-                {/* Total Display */}
-                <div className="bg-cream/50 border border-taupe/20 rounded-sm p-4">
+                <div className="bg-soulsonic/50 border border-taupe/20 rounded-sm p-4">
                   <div className="flex justify-between text-sm text-charcoal">
                     <span>Subtotal ({editForm.quantity} × ${editForm.unit_cost.toFixed(2)})</span>
                     <span>${(editForm.unit_cost * editForm.quantity).toFixed(2)}</span>
@@ -525,7 +898,7 @@ export default function OrdersPage() {
                       <span>${(editForm.unit_cost * editForm.quantity * TAX_RATE).toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-medium mt-2 pt-2 border-t border-taupe/20">
+                  <div className="flex justify-between font-medium mt-2 pt-2 border-t border-taupe/20 text-offwhite">
                     <span>Total</span>
                     <span>${calculateEditTotal().toFixed(2)}</span>
                   </div>
@@ -533,7 +906,7 @@ export default function OrdersPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Expected Date</label>
+                <label className="block text-sm font-medium text-charcoal mb-2">Expected Date</label>
                 <input
                   type="date"
                   value={editForm.expected_date}
@@ -543,22 +916,19 @@ export default function OrdersPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Internal Notes</label>
+                <label className="block text-sm font-medium text-charcoal mb-2">Internal Notes</label>
                 <textarea
                   value={editForm.internal_notes}
                   onChange={(e) => setEditForm({ ...editForm, internal_notes: e.target.value })}
                   rows={2}
                   className="input-field resize-none"
+                  placeholder="Internal notes..."
                 />
               </div>
             </div>
             
             <div className="flex gap-3 justify-end mt-6">
-              <button
-                onClick={closeEditModal}
-                className="btn-secondary"
-                disabled={saving}
-              >
+              <button onClick={closeEditModal} className="btn-secondary" disabled={saving}>
                 Cancel
               </button>
               <button
@@ -570,189 +940,6 @@ export default function OrdersPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl mb-2">Orders</h1>
-          <p className="text-charcoal">Track and manage alteration orders</p>
-        </div>
-        <Link href="/orders/new" className="btn-primary">
-          + New Order
-        </Link>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
-        {statuses.map((status) => (
-          <button
-            key={status}
-            onClick={() => setStatusFilter(status)}
-            className={`px-4 py-2 rounded-sm text-sm transition-colors ${
-              statusFilter === status
-                ? 'bg-charcoal text-soulsonic'
-                : status === 'Ready'
-                ? 'border border-charcoal/50 text-charcoal hover:border-charcoal hover:text-charcoal'
-                : 'border border-charcoal/50 text-charcoal hover:border-charcoal hover:text-charcoal'
-            }`}
-          >
-            {status === 'Ready' ? 'Ready for Pickup' : status}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Search by customer name or order ID..."
-          className="input-field pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-charcoal"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-      </div>
-
-      {/* Orders List */}
-      {loading ? (
-        <div className="card">
-          <p className="text-charcoal text-center py-12">Loading orders...</p>
-        </div>
-      ) : error ? (
-        <div className="card">
-          <p className="text-rust text-center py-12">{error}</p>
-        </div>
-      ) : filteredOrders.length === 0 ? (
-        <div className="card">
-          <p className="text-charcoal text-center py-12">
-            {searchQuery || statusFilter !== 'All'
-              ? 'No orders found matching your filters'
-              : 'No orders yet'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredOrders.map((order) => (
-            <div key={order.order_id} className="card hover:border-offwhite/30 transition-colors">
-              <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
-                {/* Left side - Customer info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium">{getCustomerName(order.customer_id)}</h3>
-                    {order.rush_order && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rust/20 text-rust text-xs font-medium rounded">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" />
-                        </svg>
-                        Rush
-                      </span>
-                    )}
-                    {order.payment_date && (
-                      <span className="text-sage" title="Paid">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
-                        </svg>
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-charcoal">{getCustomerPhone(order.customer_id)}</p>
-                  <p className="text-sm text-charcoal mt-1">
-                    {order.garment_type} • {order.service_type}
-                  </p>
-                  <p className="text-sm text-charcoal mt-1">{order.order_details}</p>
-                </div>
-
-                {/* Middle - Segmented Control for Status */}
-                <div className="flex items-center justify-center pl-12">
-                  <div className="inline-flex bg-charcoal/10 rounded-sm p-1 min-w-[300px]">
-                    {STATUS_OPTIONS.map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => handleStatusChange(String(order.order_id), status, order.customer_id)}
-                        disabled={updatingOrder === String(order.order_id)}
-                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-sm transition-all whitespace-nowrap ${
-                          order.status === status
-                            ? status === 'Received'
-                              ? 'bg-gold text-cardBg shadow-sm'
-                              : status === 'Ready'
-                              ? 'bg-rust text-cardBg shadow-sm'
-                              : 'bg-sage text-cardBg shadow-sm'
-                            : 'text-charcoal hover:text-white'
-                        } ${updatingOrder === String(order.order_id) ? 'opacity-50' : ''}`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right side - Price, Order info */}
-                <div className="text-right ml-4">
-                  <p className="font-medium">${calculateOrderTotal(order).toFixed(2)}</p>
-                  <p className="text-xs text-charcoal mt-1">Order {order.order_id}</p>
-                  <p className="text-xs text-charcoal">Received: {formatDate(order.order_date)}</p>
-                  <p className="text-xs text-charcoal">Due: {formatDate(order.expected_date)}</p>
-                </div>
-                
-                {/* Edit and Delete Icons - Vertical on the right */}
-                <div className="flex flex-col gap-1 ml-4">
-                  <button
-                    onClick={() => openEditModal(order)}
-                    className="p-2 text-charcoal hover:text-gold transition-colors"
-                    title="Edit order"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteClick(String(order.order_id))}
-                    className="p-2 text-charcoal hover:text-rust transition-colors"
-                    title="Delete order"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>

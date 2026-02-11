@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Sora, Inter } from 'next/font/google'
 import './globals.css'
+import Sidebar from '@/components/Sidebar'
 
 const sora = Sora({
   subsets: ['latin'],
@@ -26,37 +27,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${sora.variable} ${inter.variable}`}>
-      <body className="min-h-screen">
-        <nav className="border-b border-taupe/20 bg-soulsonic">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="font-display text-xl tracking-tight">
-              JN Tailor & Alterations
-            </div>
-            <div className="flex gap-8 text-sm">
-              <a href="/" className="text-charcoal hover:text-rust transition-colors">
-                Dashboard
-              </a>
-              <a href="/insights" className="text-charcoal hover:text-rust transition-colors">
-                Insights
-              </a>
-              <a href="/customers" className="text-charcoal hover:text-rust transition-colors">
-                Customers
-              </a>
-              <a href="/orders" className="text-charcoal hover:text-rust transition-colors">
-                Orders
-              </a>
-              
-            </div>
+      <body className="min-h-screen flex">
+        <Sidebar />
+        <main className="flex-1 ml-64 min-h-screen">
+          <div className="p-8">
+            {children}
           </div>
-        </nav>
-        <main className="max-w-6xl mx-auto px-6 py-8">
-          {children}
         </main>
-        <footer className="border-t border-taupe/20 mt-16">
-          <div className="max-w-6xl mx-auto px-6 py-4 text-center text-sm text-charcoal">
-            Powered by Iris Automata
-          </div>
-        </footer>
       </body>
     </html>
   )
