@@ -108,6 +108,32 @@ export async function updateCustomer(customerId: string, updates: Partial<Custom
   return !error
 }
 
+export async function deleteCustomer(customerId: string): Promise<boolean> {
+  // First delete all orders for this customer
+  const { error: ordersError } = await supabase
+    .from('orders')
+    .delete()
+    .eq('customer_id', customerId)
+
+  if (ordersError) {
+    console.error('Error deleting customer orders:', ordersError)
+    return false
+  }
+
+  // Then delete the customer
+  const { error: customerError } = await supabase
+    .from('customers')
+    .delete()
+    .eq('id', customerId)
+
+  if (customerError) {
+    console.error('Error deleting customer:', customerError)
+    return false
+  }
+
+  return true
+}
+
 // ORDERS
 
 export async function getOrders(): Promise<Order[]> {
