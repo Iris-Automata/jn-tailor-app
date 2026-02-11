@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/components/AuthProvider'
 
 interface NavItem {
   name: string
@@ -51,6 +52,7 @@ const navigation: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const { signOut, session } = useAuth()
   const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
@@ -121,6 +123,22 @@ export default function Sidebar() {
           </svg>
           New Order
         </Link>
+      </div>
+
+      {/* User & Sign Out */}
+      <div className="p-4 border-t border-taupe/20">
+        <div className="text-xs text-charcoal mb-2 truncate">
+          {session?.user?.email}
+        </div>
+        <button
+          onClick={signOut}
+          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-charcoal hover:text-red transition-colors rounded-sm hover:bg-soulsonic/50"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Sign Out
+        </button>
       </div>
 
       {/* Footer */}
