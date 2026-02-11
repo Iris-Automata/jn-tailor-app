@@ -361,7 +361,7 @@ export default function CustomersPage() {
               {sections.map(section => (
                 <div 
                   key={section.letter} 
-                  ref={el => sectionRefs.current[section.letter] = el}
+                  ref={el => { sectionRefs.current[section.letter] = el }}
                 >
                   {/* Section Header */}
                   <div className="sticky top-0 bg-cardBg border-b border-taupe/20 px-4 py-2 z-10">
