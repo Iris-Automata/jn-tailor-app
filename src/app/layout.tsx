@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Sora, Inter } from 'next/font/google'
 import './globals.css'
-import Sidebar from '@/components/Sidebar'
+import LayoutWrapper from '@/components/LayoutWrapper'
 
 const sora = Sora({
   subsets: ['latin'],
@@ -27,13 +27,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${sora.variable} ${inter.variable}`}>
-      <body className="min-h-screen flex">
-        <Sidebar />
-        <main className="flex-1 ml-64 min-h-screen">
-          <div className="p-8">
-            {children}
-          </div>
-        </main>
+      <body className="min-h-screen">
+        <LayoutWrapper>
+          {children}
+        </LayoutWrapper>
       </body>
     </html>
   )
